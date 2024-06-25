@@ -13,8 +13,9 @@ def main():
             print(entry["rules"])
             for i, phase in enumerate(entry["phases"]):
                 print(phase.keys())
-                print(phase["state"])
-                if i == 10:
+                print(phase["orders"])
+                print(phase["orders"].keys())
+                if i == 100:
                     break
             break
         

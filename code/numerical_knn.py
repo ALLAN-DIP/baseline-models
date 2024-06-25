@@ -5,7 +5,7 @@ class Knn_Model:
     def __init__(self):
         self.data = list()
         
-    def get_dist(self, state, other):
+    def get_state_dist(self, state, other):
         dist = 0
         
         """
@@ -37,6 +37,38 @@ class Knn_Model:
                     for unit in other_info[nation]:
                         dist += not unit in info[nation]
         return dist
+    
+    def get_order_dist(self, orders, other):
+        dist = 0
+
+        """
+        Using same naive Hamming distance metric as above
+        """
+
+        for nation in orders.keys():
+            if orders[nation] == None:
+                continue
+            elif not nation in other.keys():
+                dist += len(orders[nation])
+            elif other[nation] == None:
+                dist += len(orders[nation])
+            else:
+                for unit in orders[nation]:
+                    dist += not unit in other[nation]
+        for nation in other.keys():
+            if other[nation] == None:
+                continue
+            elif not nation in orders.keys():
+                dist += len(other[nation])
+            elif orders[nation] == None:
+                dist += len(other[nation])
+            else:
+                for unit in other[nation]:
+                    dist += not unit in orders[nation]
+
+        return dist
+
+
 
     def train(self, train_path):
         with open(train_path, 'r') as src:
@@ -45,20 +77,24 @@ class Knn_Model:
                 for phase in game["phases"]:
                     self.data.append((phase["state"], phase["orders"]))
 
-    def infer(self, test_path):
+    def eval(self, test_path):
+        pairs = list()
         with open(test_path, 'r') as src:
             for line in src:
                 game = json.loads(line)
                 for phase in game["phases"]:
                     state = phase["state"]
-                    choices = sorted(self.data, key=lambda x : self.get_dist(state, x[0]))
-                    break
-                chosen = choices[0]
-                true = (state, phase["orders"])
-                print(f"Chosen:\n{chosen}\n\nTrue:\n{true}")
-                print(f"Distance: {self.get_dist(state, chosen[0])}")
+                    order = phase["orders"]
+                    true = (state, order)
+
+                    choices = sorted(self.data, key=lambda x : self.get_state_dist(state, x[0]))
+                    chosen = choices[0]
+
+                    state_score = self.get_state_dist(state, chosen[0])
+                    orders_score = self.get_order_dist(order, chosen[1])
+                    pairs.append((true, chosen, state_score, orders_score))
                 break
-        return chosen
+        return pairs
 
 def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
@@ -66,7 +102,10 @@ def main():
     test_path = os.path.join(data_path, "test.jsonl")
     knn = Knn_Model()
     knn.train(train_path)
-    knn.infer(test_path)
+
+    pairs = knn.eval(test_path)
+    for true, chosen, state_score, orders_score in pairs:
+        print(f"True choice:\n{true[1]}\n\nChosen choice:\n{chosen[1]}\n\nState score: {state_score}\nOrders score: {orders_score}")
 
 if __name__ == "__main__":
     main()
