@@ -1,7 +1,7 @@
 import os
 
 class Splitter:
-    def __init__(self, src_path, dest_path, split_points=[0.9, 1], split_names=["train.jsonl", "test.jsonl"], total_games=100):
+    def __init__(self, src_path, dest_path, split_points=[0.9, 1], split_names=["train.jsonl", "test.jsonl"], total_games=1000):
         self.src_path = src_path
         self.dest_path = dest_path
         self.split_points = split_points
@@ -29,6 +29,6 @@ class Splitter:
 
 if __name__ == "__main__":
     src_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
-    dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
+    dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     splitter = Splitter(src_path, dest_path)
     splitter.split()
