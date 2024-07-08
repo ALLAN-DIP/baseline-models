@@ -122,7 +122,7 @@ def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
-    knn = Knn_Model(k=10)
+    knn = Knn_Model(k=5)
     knn.train(train_path)
 
     pairs = knn.eval(test_path)

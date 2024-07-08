@@ -3,11 +3,12 @@ import json
 
 def main():
     path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs")
-    filepath = os.path.join(path, "other_maps.jsonl")
+    filepath = os.path.join(path, "standard_no_press.jsonl")
     messages_count = 0
     
     with open(filepath, 'r') as file:
-        for line in file:
+        codes = set()
+        for i, line in enumerate(file):
             entry = json.loads(line)
             # print(entry.keys())
             # print(entry["map"])
@@ -19,6 +20,15 @@ def main():
                 if len(phase["messages"]) > 0:
                     print(phase["messages"])
                     messages_count += 1
+                influences = phase["state"]["influence"]
+                for infs in influences.values():
+                    for inf in infs:
+                        codes.add(inf)
+            if i == 100:
+                break
+        print(codes, len(codes))
+
+
         print(messages_count)
         
 
