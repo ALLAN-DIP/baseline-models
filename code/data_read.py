@@ -20,7 +20,7 @@ def main():
                 if len(phase["messages"]) > 0:
                     print(phase["messages"])
                     messages_count += 1
-                influences = phase["state"]["influence"]
+                influences = phase["state"]["centers"]
                 for infs in influences.values():
                     for inf in infs:
                         codes.add(inf)

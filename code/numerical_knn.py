@@ -119,7 +119,7 @@ class Knn_Model:
         return pairs
 
 def main():
-    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
+    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
     knn = Knn_Model(k=5)
