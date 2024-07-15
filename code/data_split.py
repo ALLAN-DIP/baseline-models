@@ -1,12 +1,17 @@
 import os
 
 class Splitter:
-    def __init__(self, src_path, dest_path, split_points=[0.9, 1], split_names=["train.jsonl", "test.jsonl"], total_games=1000):
+    def __init__(self, src_path, dest_path, ratio_split=True, split_points=[0.9, 1], split_names=["train.jsonl", "test.jsonl"], total_games=1000):
         self.src_path = src_path
         self.dest_path = dest_path
-        self.split_points = split_points
         self.split_names = split_names
         self.total_games = total_games
+        
+        if ratio_split:
+            self.split_points = list(point * total_games for point in split_points)
+        else:
+            self.split_points = split_points
+        
     
     def split(self):
         write_files = list()
@@ -17,7 +22,7 @@ class Splitter:
         with open(self.src_path, 'r') as src:
             for n, line in enumerate(src):
                 for s, split in enumerate(self.split_points):
-                    if n < split * self.total_games:
+                    if n < split:
                         write_files[s].write(line)
                         print(f"Writing line {n} in set {self.split_names[s]}")
                         break
@@ -30,5 +35,5 @@ class Splitter:
 if __name__ == "__main__":
     src_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
     dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
-    splitter = Splitter(src_path, dest_path)
+    splitter = Splitter(src_path, dest_path, ratio_split=False, split_points=[100, 200], split_names=["test.jsonl", "train.jsonl"], total_games=200)
     splitter.split()
