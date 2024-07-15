@@ -13,20 +13,22 @@ def main():
             # print(entry.keys())
             # print(entry["map"])
             # print(entry["rules"])
-            for i, phase in enumerate(entry["phases"]):
-                # print(phase.keys())
+            for j, phase in enumerate(entry["phases"]):
+                print(phase['state'].keys())
+                print(phase['state']['name'])
+                print(phase['state']['units'])
+                if j == 16:
+                    break
                 # print(phase["orders"])
                 # print(phase["orders"].keys())
-                if len(phase["messages"]) > 0:
-                    print(phase["messages"])
-                    messages_count += 1
+            """
                 influences = phase["state"]["centers"]
                 for infs in influences.values():
                     for inf in infs:
                         codes.add(inf)
-            if i == 100:
+            """
+            if i == 1:
                 break
-        print(codes, len(codes))
 
 
         print(messages_count)

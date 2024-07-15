@@ -1,10 +1,9 @@
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from time import time
 import os
 import json
-import numpy as np
-from constants import *
 from preprocess import decode_class, entry_to_vectors
-from time import time
+from constants import *
 
 def order_accuracy(predicted, true):
     # print(f"Predicted: {predicted}\nTrue: {true}\n")
@@ -23,10 +22,9 @@ def order_accuracy(predicted, true):
             micro_total += 1
     return macro_correct, micro_correct, macro_total, micro_total
 
-def run_knn(train_path, test_path):
+def run_lr(train_path, test_path):
     x = list()
     y = list()
-    k = 10
 
     print("Preprocessing training data")
     with open(train_path, 'r') as train:
@@ -38,7 +36,7 @@ def run_knn(train_path, test_path):
                 y.append(vectors[1])
 
     print("Training model")
-    model = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
+    model = LogisticRegression(random_state=1)
     model.fit(x, y)
     
     print("Preprocessing testing data")
@@ -70,13 +68,12 @@ def run_knn(train_path, test_path):
     print(f"Macro Accuracy: {(100 * overall_macro_correct / overall_macro_total):.2f}%")
     print(f"Micro Accuracy: {(100 * overall_micro_correct / overall_micro_total):.2f}%")
 
-
 def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
 
-    run_knn(train_path, test_path)
+    run_lr(train_path, test_path)
 
 
 if __name__ == "__main__":

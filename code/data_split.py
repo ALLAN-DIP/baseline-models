@@ -5,12 +5,13 @@ class Splitter:
         self.src_path = src_path
         self.dest_path = dest_path
         self.split_names = split_names
-        self.total_games = total_games
         
         if ratio_split:
             self.split_points = list(point * total_games for point in split_points)
+            self.total_games = total_games
         else:
             self.split_points = split_points
+            self.total_games = split_points[-1]
         
     
     def split(self):
@@ -35,5 +36,5 @@ class Splitter:
 if __name__ == "__main__":
     src_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
     dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
-    splitter = Splitter(src_path, dest_path, ratio_split=False, split_points=[100, 200], split_names=["test.jsonl", "train.jsonl"], total_games=200)
+    splitter = Splitter(src_path, dest_path, ratio_split=False, split_points=[100, 1100], split_names=["test.jsonl", "train.jsonl"], total_games=1100)
     splitter.split()
