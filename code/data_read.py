@@ -14,9 +14,9 @@ def main():
             # print(entry["map"])
             # print(entry["rules"])
             for j, phase in enumerate(entry["phases"]):
-                print(phase['state'].keys())
+                # print(phase['state'].keys())
                 print(phase['state']['name'])
-                print(phase['state']['units'])
+                # print(phase['state']['units'])
                 if j == 16:
                     break
                 # print(phase["orders"])

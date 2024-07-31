@@ -24,8 +24,7 @@ def order_accuracy(predicted, true):
     return macro_correct, micro_correct, macro_total, micro_total
 
 def run_knn(train_path, test_path):
-    x = list()
-    y = list()
+    groups = dict()
     k = 10
 
     print("Preprocessing training data")
@@ -34,41 +33,60 @@ def run_knn(train_path, test_path):
             game = json.loads(line)
             for phase in game["phases"]:
                 vectors = entry_to_vectors(phase)
-                x.append(vectors[0])
-                y.append(vectors[1])
+                if not vectors[2] in groups.keys():
+                    groups[vectors[2]] = (list(), list())
+                groups[vectors[2]][0].append(vectors[0])
+                groups[vectors[2]][1].append(vectors[1])
+    print(groups['SM'][0][0], groups['SM'][1][0])
 
-    print("Training model")
-    model = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
-    model.fit(x, y)
+    models = dict()
+    print("Training models")
+    for phase_type, data in groups.items():
+        models[phase_type] = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
+        models[phase_type].fit(data[0], data[1])
     
     print("Preprocessing testing data")
-    test_data = list()
-    true_labels = list()
+    test_data = dict()
     with open(test_path, 'r') as test:
         for line in test:
             game = json.loads(line)
             for phase in game["phases"]:
                 vectors = entry_to_vectors(phase)
-                test_data.append(vectors[0])
-                true_labels.append(vectors[1])
+                if not vectors[2] in test_data.keys():
+                    test_data[vectors[2]] = (list(), list())
+                test_data[vectors[2]][0].append(vectors[0])
+                test_data[vectors[2]][1].append(vectors[1])
     
     print("Evaluating model")
-    pred_labels = model.predict(test_data)
-    pred_orders = map(decode_class, pred_labels)
-    true_orders = map(decode_class, true_labels)
+    all_macro_correct = 0
+    all_micro_correct = 0
+    all_macro_total = 0
+    all_micro_total = 0
+    for phase_type, data in test_data.items():
+        print(f"\nPredicting for phases {phase_type}")
+        pred_labels = models[phase_type].predict(data[0])
+        pred_orders = map(decode_class, pred_labels)
+        true_orders = map(decode_class, data[1])
 
-    overall_macro_correct = 0
-    overall_macro_total = 0
-    overall_micro_correct = 0
-    overall_micro_total = 0
-    for pred, true in zip(pred_orders, true_orders):
-        macro_correct, micro_correct, macro_total, micro_total = order_accuracy(pred, true)
-        overall_macro_correct += macro_correct
-        overall_macro_total += macro_total
-        overall_micro_correct += micro_correct
-        overall_micro_total += micro_total
-    print(f"Macro Accuracy: {(100 * overall_macro_correct / overall_macro_total):.2f}%")
-    print(f"Micro Accuracy: {(100 * overall_micro_correct / overall_micro_total):.2f}%")
+        overall_macro_correct = 0
+        overall_macro_total = 0
+        overall_micro_correct = 0
+        overall_micro_total = 0
+        for pred, true in zip(pred_orders, true_orders):
+            macro_correct, micro_correct, macro_total, micro_total = order_accuracy(pred, true)
+            overall_macro_correct += macro_correct
+            overall_macro_total += macro_total
+            overall_micro_correct += micro_correct
+            overall_micro_total += micro_total
+        print(f"Macro Accuracy: {(100 * overall_macro_correct / overall_macro_total):.2f}%")
+        print(f"Micro Accuracy: {(100 * overall_micro_correct / overall_micro_total):.2f}%")
+        all_macro_correct += overall_macro_correct
+        all_macro_total += overall_macro_total
+        all_micro_correct += overall_micro_correct
+        all_micro_total += overall_micro_total
+    print(f"Total accuracies:")
+    print(f"Macro Accuracy: {(100 * all_macro_correct / all_macro_total):.2f}%")
+    print(f"Micro Accuracy: {(100 * all_micro_correct / all_micro_total):.2f}%")
 
 
 def main():

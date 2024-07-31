@@ -28,7 +28,14 @@ def entry_to_vectors(phase):
     orders = phase["orders"]
 
     FIELDS = ["powers", "centers", "homes", "influence"]
-
+    phases = {
+        'SM' : 0,
+        'FM' : 1,
+        'WA' : 2,
+        'SR' : 3,
+        'FR' : 4,
+        'CD' : 5
+    }
 
     """
     # Old attributes
@@ -37,17 +44,21 @@ def entry_to_vectors(phase):
         attributes[i] = state[field]
     """
 
-    
+    phase_data = state["name"]
     units_data = state["units"]
     centers_data = state["centers"]
     homes_data = state["homes"]
     influences_data = state["influence"]
     n_powers = len(POWERS)
 
+    phase_atr = np.zeros([len(phases)], dtype=bool)
     units_atr = np.zeros([n_powers * 2 * len(INFLUENCES)], dtype=bool)
     centers_atr = np.zeros([n_powers * len(CENTERS)], dtype=bool)
     homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
     influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
+
+    season_phase = phase_data[0] + phase_data[-1]
+    phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
         # Units
@@ -77,9 +88,9 @@ def entry_to_vectors(phase):
                     if inf in influences_data[power]:
                         influences_atr[i * n_powers + j] = power
 
-    attributes = np.concatenate((units_atr, centers_atr, homes_atr, influences_atr))
+    attributes = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
     # Discretisation of orders as strings
     classes = encode_class(orders)
         
-    return attributes, classes
+    return attributes, classes, season_phase

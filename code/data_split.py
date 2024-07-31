@@ -35,6 +35,6 @@ class Splitter:
 
 if __name__ == "__main__":
     src_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
-    dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
-    splitter = Splitter(src_path, dest_path, ratio_split=False, split_points=[100, 1100], split_names=["test.jsonl", "train.jsonl"], total_games=1100)
+    dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
+    splitter = Splitter(src_path, dest_path, ratio_split=False, split_points=[100, 200], split_names=["test.jsonl", "train.jsonl"], total_games=1100)
     splitter.split()
