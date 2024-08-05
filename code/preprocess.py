@@ -1,5 +1,6 @@
 import numpy as np
 from constants import *
+import json
 
 def encode_class(orders):
     classes = np.ndarray([len(POWERS)], dtype=object)
@@ -36,13 +37,6 @@ def entry_to_vectors(phase):
         'FR' : 4,
         'CD' : 5
     }
-
-    """
-    # Old attributes
-    attributes = np.ndarray([len(fields)], dtype=object)
-    for i, field in enumerate(fields):
-        attributes[i] = state[field]
-    """
 
     phase_data = state["name"]
     units_data = state["units"]
@@ -94,3 +88,22 @@ def entry_to_vectors(phase):
     classes = encode_class(orders)
         
     return attributes, classes, season_phase
+
+def generate_x_y(groups, src, split_phase_types=False):
+    if split_phase_types:    
+        for line in src:
+            game = json.loads(line)
+            for phase in game["phases"]:
+                vectors = entry_to_vectors(phase)
+                if not vectors[2] in groups.keys():
+                    groups[vectors[2]] = (list(), list())
+                groups[vectors[2]][0].append(vectors[0])
+                groups[vectors[2]][1].append(vectors[1])
+    else:
+        groups["all"] = (list(), list())    
+        for line in src:
+            game = json.loads(line)
+            for phase in game["phases"]:
+                vectors = entry_to_vectors(phase)
+                groups["all"][0].append(vectors[0])
+                groups["all"][1].append(vectors[1])
