@@ -1,5 +1,5 @@
 import numpy as np
-from constants import *
+from chiron_utils.bots.baseline_models.constants import *
 import json
 
 def encode_class(orders):
@@ -24,9 +24,19 @@ def decode_class(encoding):
         decoding[i] = classes[i].split("^")
     return decoding
 
-def entry_to_vectors(phase):
-    state = phase["state"]
-    orders = phase["orders"]
+def entry_to_vectors(phase, include_orders=True, name_data=None, units_data=None, centers_data=None, homes_data=None, influences_data=None):
+
+
+    # If the entire phase is available in dipnet format, pass phase directly in.
+    if phase:
+        state = phase["state"]
+        name_data = state["name"]
+        units_data = state["units"]
+        centers_data = state["centers"]
+        homes_data = state["homes"]
+        influences_data = state["influence"]
+
+    # Otherwise set phase to None and pass other fields.
 
     FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
@@ -38,11 +48,6 @@ def entry_to_vectors(phase):
         'CD' : 5
     }
 
-    phase_data = state["name"]
-    units_data = state["units"]
-    centers_data = state["centers"]
-    homes_data = state["homes"]
-    influences_data = state["influence"]
     n_powers = len(POWERS)
 
     phase_atr = np.zeros([len(phases)], dtype=bool)
@@ -51,7 +56,11 @@ def entry_to_vectors(phase):
     homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
     influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
 
-    season_phase = phase_data[0] + phase_data[-1]
+    if phase:
+        season_phase = name_data[0] + name_data[-1]
+    else:
+        split = name_data.split()
+        season_phase = split[0][0] + split[2][0]
     phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
@@ -85,7 +94,10 @@ def entry_to_vectors(phase):
     attributes = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
     # Discretisation of orders as strings
-    classes = encode_class(orders)
+    classes = None
+    if include_orders:
+        orders = phase["orders"]
+        classes = encode_class(orders)
         
     return attributes, classes, season_phase
 

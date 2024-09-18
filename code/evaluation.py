@@ -1,5 +1,5 @@
-from constants import *
-from preprocess import decode_class
+from chiron_utils.bots.baseline_models.constants import *
+from chiron_utils.bots.baseline_models.preprocess import encode_class, decode_class, entry_to_vectors
 
 class Results():
     def __init__(self, models, split_phase_types):
@@ -63,3 +63,10 @@ def evaluate_model(test_dict, models, split_phase_types=False):
     results = Results(models, split_phase_types)
     results.evaluate(test_dict)
     return results
+
+def infer(model, entry_vector):
+    print(entry_vector)
+    pred_labels = model.predict(entry_vector)
+    print(pred_labels)
+    pred_orders = decode_class(pred_labels[0])
+    return pred_orders
