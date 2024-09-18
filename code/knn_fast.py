@@ -6,8 +6,9 @@ from constants import *
 from preprocess import generate_x_y
 from time import time
 from evaluation import evaluate_model
+import pickle
 
-def run_knn(train_path, test_path):
+def run_knn(train_path, test_path, model_path):
     train_dict = dict()
     k = 10
     split_phases = True
@@ -22,6 +23,10 @@ def run_knn(train_path, test_path):
         models[phase_type] = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
         models[phase_type].fit(data[0], data[1])
     
+    if model_path != None:
+        with open(model_path, 'wb') as model_file:
+            pickle.dump(models, model_file)
+
     print("Preprocessing testing data")
     test_dict = dict()
     with open(test_path, 'r') as test:
@@ -32,11 +37,12 @@ def run_knn(train_path, test_path):
     print(results)
 
 def main():
-    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
+    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
+    model_path = os.path.join(data_path, "model")
 
-    run_knn(train_path, test_path)
+    run_knn(train_path, test_path, model_path)
 
 
 if __name__ == "__main__":
