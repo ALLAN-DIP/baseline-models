@@ -6,11 +6,11 @@ test = {"timestamp":1542990097232324,"zobrist_hash":"5744784867136166527","note"
 def dict_to_state(state_dict):
     game = Game()
     for power in game.powers.values():
-        print(power)
         name = power.name
         power.units = state_dict["units"][name]
         power.centers = state_dict["centers"][name]
         power.influence = state_dict["influence"][name]
         power.homes = state_dict["homes"][name]
-        print(power)
-    return game
+    phase = state_dict["name"]
+
+    return game, phase

@@ -7,8 +7,21 @@ from utils import OrderEnum
 
 class CustomRenderer(Renderer):
 
-    def __init__(self, game, svg_path=None):
+    def __init__(self, game, svg_path=None, phase=None):
         super().__init__(game, svg_path)
+        self.phase = phase
+        self.background = None
+        self.background_inserted = False
+
+        self.opacities = {
+            "austria": 0.5,
+            "england": 0.5,
+            "france": 0.5,
+            "germany": 0.5,
+            "italy": 0.5,
+            "russia": 0.5,
+            "turkey": 0.5
+        }
 
         self.order_dict = {
             OrderEnum.NO_ORDER: None,
@@ -33,6 +46,7 @@ class CustomRenderer(Renderer):
 
     # Adapted from the renderer method of the Renderer class
     def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None):
+        self.background_inserted = False
         if output_format not in ['svg']:
             raise ValueError('Only "svg" format is current supported.')
         if not self.game or not self.game.map or not self.xml_map:
@@ -47,8 +61,14 @@ class CustomRenderer(Renderer):
                       if not power.is_eliminated()]
         nb_centers = sorted(nb_centers, key=lambda key: key[1], reverse=True)
         nb_centers_per_power = ' '.join(['{}: {}'.format(name, centers) for name, centers in nb_centers])
-        xml_map = self._set_current_phase(xml_map, self.game.get_current_phase())
+        if self.phase:
+            xml_map = self._set_current_phase(xml_map, self.phase)
+        else:
+            xml_map = self._set_current_phase(xml_map, self.game.get_current_phase())
         xml_map = self._set_note(xml_map, nb_centers_per_power, self.game.note)
+
+        self.background = xml_map.createElement('g')
+        self.background.setAttribute('id', 'back')
 
         # Adding units and influence
         for i, power in enumerate(self.game.powers.values()):
@@ -57,9 +77,9 @@ class CustomRenderer(Renderer):
             for unit in power.retreats:
                 xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=True)
             for center in power.centers:
-                xml_map = self._set_influence(xml_map, center, power.name, has_supply_center=True)
+                xml_map = self.custom_set_influence(xml_map, center, power.name, has_supply_center=True)
             for loc in power.influence:
-                xml_map = self._set_influence(xml_map, loc, power.name, has_supply_center=False)
+                xml_map = self.custom_set_influence(xml_map, loc, power.name, has_supply_center=False)
 
             # Orders
             if incl_orders:
@@ -173,6 +193,72 @@ class CustomRenderer(Renderer):
                 return OrderEnum.CONVOY_ORDER, [unit_loc, src_loc, dest_loc, power.name]
         else:
             raise RuntimeError('Unknown order: {}'.format(' '.join(tokens)))
+
+    def custom_set_influence(self, xml_map, loc, power_name, has_supply_center=False):
+        """ Sets the influence on the map
+
+            :param xml_map: The xml map being generated
+            :param loc: The province being influenced (e.g. 'PAR')
+            :param power_name: The name of the power influencing the province
+            :param has_supply_center: Boolean flag to acknowledge we are modifying a loc with a SC
+            :return: Nothing
+        """
+        loc = loc.upper()[:3]
+        if loc in self.game.map.scs and not has_supply_center:
+            return xml_map
+        if self.game.map.area_type(loc) == 'WATER':
+            return xml_map
+
+        class_name = power_name.lower() if power_name else 'nopower'
+
+        # Inserting
+        map_layer = None
+        for child_node in xml_map.getElementsByTagName('svg')[0].childNodes:
+            if child_node.nodeName == 'g' and _attr(child_node, 'id') == 'MapLayer':
+                map_layer = child_node
+                break
+
+        if map_layer:
+            if not self.background_inserted:
+                first_path = map_layer.getElementsByTagName('path')[0]
+                map_layer.insertBefore(self.background, first_path)
+                self.background_inserted = True
+
+            for map_node in map_layer.childNodes:
+                if (map_node.nodeName in ('g', 'path', 'polygon') and map_node.getAttribute('id') == '_{}'.format(loc.lower())):
+
+                    # Province is a polygon - Setting influence directly
+                    if map_node.nodeName in ('path', 'polygon'):
+                        map_node.setAttribute('class', class_name)
+
+                        dup_node = map_node.cloneNode(False)
+                        dup_node.setAttribute('fill', '#FFFFFF')
+                        dup_node.removeAttribute('class')
+                        dup_node.setAttribute('id', f"{dup_node.getAttribute('id')}_back")
+
+                        self.background.appendChild(dup_node)
+                        map_node.setAttribute('opacity', str(self.opacities[class_name]))
+                        return xml_map
+
+                    # Otherwise, map node is a 'g' node.
+                    node_edited = False
+                    for sub_node in map_node.childNodes:
+                        if sub_node.nodeName in ('path', 'polygon') and sub_node.getAttribute('class') != 'water':
+                            node_edited = True
+                            sub_node.setAttribute('class', class_name)
+
+                            dup_node = sub_node.cloneNode(False)
+                            dup_node.setAttribute('fill', '#FFFFFF')
+                            dup_node.removeAttribute('class')
+                            dup_node.setAttribute('id', f"{dup_node.getAttribute('id')}_back")
+
+                            self.background.appendChild(dup_node)
+                            sub_node.setAttribute('opacity', str(self.opacities[class_name]))
+                    if node_edited:
+                        return xml_map
+
+        # Returning
+        return xml_map
 
     def custom_issue_hold_order(self, xml_map, loc, power_name, weight=1):
         """ Adds a hold order to the map
