@@ -15,12 +15,12 @@ class CustomRenderer(Renderer):
 
         self.opacities = {
             "austria": 0.5,
-            "england": 0.5,
-            "france": 0.5,
-            "germany": 0.5,
-            "italy": 0.5,
-            "russia": 0.5,
-            "turkey": 0.5
+            "england": 0.25,
+            "france": 0.25,
+            "germany": 0.25,
+            "italy": 0.25,
+            "russia": 0.25,
+            "turkey": 0.25
         }
 
         self.order_dict = {
@@ -41,8 +41,11 @@ class CustomRenderer(Renderer):
             OrderEnum.CONVOY_ORDER: self.custom_issue_convoy_order
         }
 
-    def apply_weight(g_node, weight):
+    def apply_weight_opacity(g_node, weight):
         g_node.setAttribute('opacity', str(weight))
+
+    def scale_weight(weight):
+        return 1.2 - (1 - weight) * 3 / 4
 
     # Adapted from the renderer method of the Renderer class
     def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None):
@@ -54,6 +57,26 @@ class CustomRenderer(Renderer):
 
         # Parsing XML
         xml_map = minidom.parseString(self.xml_map)
+
+        # Resetting transparencies for opacity rendering
+        style_elements = xml_map.getElementsByTagName('style')
+        for style in style_elements:
+            style_contents = style.firstChild.nodeValue
+            if '.shadowdash' in style_contents:
+                new_contents = style_contents.replace('opacity:0.45', '').strip()
+                style.firstChild.nodeValue = new_contents
+        altered_symbols = ["ConvoyTriangle", "SupportHoldUnit"]
+        for symbol in altered_symbols:
+            symbol_element = None
+            for element in xml_map.getElementsByTagName('*'):
+                if element.getAttribute('id') == symbol:
+                    symbol_element = element
+            if not symbol_element:
+                continue
+            polygon_elements = symbol_element.getElementsByTagName('polygon')
+            for polygon in polygon_elements:
+                if polygon.hasAttribute('opacity'):
+                    polygon.removeAttribute('opacity')
 
         # Setting phase and note
         nb_centers = [(power.name[:3], len(power.centers))
@@ -260,6 +283,23 @@ class CustomRenderer(Renderer):
         # Returning
         return xml_map
 
+    def custom_center_symbol_around_unit(self, loc, is_dislodged, symbol, weight=1):
+        """ Compute top-left coordinates of a symbol to be centered around a unit.
+
+            :param loc: unit location (e.g. 'PAR')
+            :param is_dislodged: boolean to tell if unit is dislodged
+            :param symbol: symbol identifier (e.g. 'HoldUnit')
+            :return: a couple of coordinates (x, y) as string values
+        """
+        key = 'disl' if is_dislodged else 'unit'
+        unit_x, unit_y = self.metadata['coord'][loc][key]
+        unit_height, unit_width = self.metadata['symbol_size'][ARMY]
+        symbol_height, symbol_width = (str(float(size) * CustomRenderer.scale_weight(weight)) for size in self.metadata['symbol_size'][symbol])
+        return (
+            str(float(unit_x) + float(unit_width) / 2 - float(symbol_width) / 2),
+            str(float(unit_y) + float(unit_height) / 2 - float(symbol_height) / 2)
+        )
+
     def custom_issue_hold_order(self, xml_map, loc, power_name, weight=1):
         """ Adds a hold order to the map
 
@@ -270,18 +310,17 @@ class CustomRenderer(Renderer):
         """
         # Symbols
         symbol = 'HoldUnit'
-        loc_x, loc_y = self._center_symbol_around_unit(loc, False, symbol)
+        loc_x, loc_y = self.custom_center_symbol_around_unit(loc, False, symbol, weight)
 
         # Creating nodes
         g_node = xml_map.createElement('g')
         g_node.setAttribute('stroke', self.metadata['color'][power_name])
-        CustomRenderer.apply_weight(g_node, weight)
-        CustomRenderer.apply_weight(g_node, weight)
+        CustomRenderer.apply_weight_opacity(g_node, weight)
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', loc_x)
         symbol_node.setAttribute('y', loc_y)
-        symbol_node.setAttribute('height', self.metadata['symbol_size'][symbol][0])
-        symbol_node.setAttribute('width', self.metadata['symbol_size'][symbol][1])
+        symbol_node.setAttribute('height', str(float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)))
+        symbol_node.setAttribute('width', str(float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)))
         symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
 
         # Inserting
@@ -325,7 +364,7 @@ class CustomRenderer(Renderer):
         # Creating nodes
         g_node = xml_map.createElement('g')
         g_node.setAttribute('stroke', self.metadata['color'][power_name])
-        CustomRenderer.apply_weight(g_node, weight)
+        CustomRenderer.apply_weight_opacity(g_node, weight)
 
         line_with_shadow = xml_map.createElement('line')
         line_with_shadow.setAttribute('x1', src_loc_x)
@@ -342,7 +381,7 @@ class CustomRenderer(Renderer):
         line_with_arrow.setAttribute('y2', dest_loc_y)
         line_with_arrow.setAttribute('class', 'varwidthorder')
         line_with_arrow.setAttribute('stroke', self.metadata['color'][power_name])
-        line_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width()))
+        line_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width() * CustomRenderer.scale_weight(weight)))
         line_with_arrow.setAttribute('marker-end', 'url(#arrow)')
 
         # Inserting
@@ -366,12 +405,12 @@ class CustomRenderer(Renderer):
         """
         # Symbols
         symbol = 'SupportHoldUnit'
-        symbol_loc_x, symbol_loc_y = self._center_symbol_around_unit(dest_loc, False, symbol)
+        symbol_loc_x, symbol_loc_y = self.custom_center_symbol_around_unit(dest_loc, False, symbol, weight)
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', symbol_loc_x)
         symbol_node.setAttribute('y', symbol_loc_y)
-        symbol_node.setAttribute('height', self.metadata['symbol_size'][symbol][0])
-        symbol_node.setAttribute('width', self.metadata['symbol_size'][symbol][1])
+        symbol_node.setAttribute('height', str(float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)))
+        symbol_node.setAttribute('width', str(float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)))
         symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
 
         loc_x, loc_y = self._get_unit_center(loc, False)
@@ -388,7 +427,7 @@ class CustomRenderer(Renderer):
         # Creating nodes
         g_node = xml_map.createElement('g')
         g_node.setAttribute('stroke', self.metadata['color'][power_name])
-        CustomRenderer.apply_weight(g_node, weight)
+        CustomRenderer.apply_weight_opacity(g_node, weight)
 
         shadow_line = xml_map.createElement('line')
         shadow_line.setAttribute('x1', str(loc_x))
@@ -443,7 +482,7 @@ class CustomRenderer(Renderer):
 
         # Creating nodes
         g_node = xml_map.createElement('g')
-        CustomRenderer.apply_weight(g_node, weight)
+        CustomRenderer.apply_weight_opacity(g_node, weight)
 
         path_with_shadow = xml_map.createElement('path')
         path_with_shadow.setAttribute('class', 'shadowdash')
@@ -457,6 +496,7 @@ class CustomRenderer(Renderer):
 
         path_with_arrow = xml_map.createElement('path')
         path_with_arrow.setAttribute('class', 'supportorder')
+        path_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width() * 8 * CustomRenderer.scale_weight(weight)))
         path_with_arrow.setAttribute('stroke', self.metadata['color'][power_name])
         path_with_arrow.setAttribute('marker-end', 'url(#arrow)')
         path_with_arrow.setAttribute('d', 'M {x},{y} C {src_x},{src_y} {src_x},{src_y} {dest_x},{dest_y}'
@@ -491,9 +531,9 @@ class CustomRenderer(Renderer):
             :return: Nothing
         """
         symbol = 'ConvoyTriangle'
-        symbol_loc_x, symbol_loc_y = self._center_symbol_around_unit(src_loc, False, symbol)
-        symbol_height = float(self.metadata['symbol_size'][symbol][0])
-        symbol_width = float(self.metadata['symbol_size'][symbol][1])
+        symbol_loc_x, symbol_loc_y = self.custom_center_symbol_around_unit(src_loc, False, symbol, weight)
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
         triangle = EquilateralTriangle(x_top=float(symbol_loc_x) + symbol_width / 2,
                                        y_top=float(symbol_loc_y),
                                        x_right=float(symbol_loc_x) + symbol_width,
@@ -541,7 +581,7 @@ class CustomRenderer(Renderer):
         # Creating nodes
         g_node = xml_map.createElement('g')
         g_node.setAttribute('stroke', self.metadata['color'][power_name])
-        CustomRenderer.apply_weight(g_node, weight)
+        CustomRenderer.apply_weight_opacity(g_node, weight)
 
         src_shadow_line = xml_map.createElement('line')
         src_shadow_line.setAttribute('x1', loc_x)
