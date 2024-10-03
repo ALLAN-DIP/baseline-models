@@ -148,6 +148,7 @@ class CustomRenderer(Renderer):
             # Alterations
             if alterations:
                 for order, weight in alterations[i]:
+                    order = order.replace('\\', '')
                     order_type, order_args = self.parse_order(order, power)
                     xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
 
