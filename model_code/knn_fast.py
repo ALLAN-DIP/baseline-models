@@ -4,43 +4,47 @@ import json
 import numpy as np
 from constants import *
 from preprocess import generate_x_y
+from preprocess import key_to_filename
 from time import time
 from evaluation import evaluate_model
 import pickle
 
 def run_knn(train_path, test_path, model_path):
     train_dict = dict()
-    k = 10
-    split_phases = True
+    k_max = 10
 
     print("Preprocessing training data")
     with open(train_path, 'r') as train:
-        generate_x_y(train_dict, train, split_phase_types=split_phases)
+        generate_x_y(train_dict, train)
 
-    models = dict()
     print("Training models")
-    for phase_type, data in train_dict.items():
-        models[phase_type] = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
-        models[phase_type].fit(data[0], data[1])
+    for unit, data in train_dict.items():
+        print(f"Sample size for {unit}: {len(data[0])}")
+        k = k_max
+        if k_max > len(data[0]):
+            k = len(data[0])
+
+        model = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
+        model.fit(data[0], data[1])
     
-    if model_path != None:
-        with open(model_path, 'wb') as model_file:
-            pickle.dump(models, model_file)
+        if model_path != None:
+            with open(os.path.join(model_path, key_to_filename(unit)), 'wb') as model_file:
+                pickle.dump(model, model_file)
 
     print("Preprocessing testing data")
     test_dict = dict()
     with open(test_path, 'r') as test:
-        generate_x_y(test_dict, test, split_phase_types=split_phases)
+        generate_x_y(test_dict, test)
     
     print("Evaluating model")
-    results = evaluate_model(test_dict, models, split_phase_types=split_phases)
+    results = evaluate_model(test_dict, model_path)
     print(results)
 
 def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
-    model_path = os.path.join(data_path, "model")
+    model_path = os.path.join(data_path, "knn_models")
 
     run_knn(train_path, test_path, model_path)
 
