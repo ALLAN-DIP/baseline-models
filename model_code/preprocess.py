@@ -1,32 +1,44 @@
 import numpy as np
 from constants import *
 import json
+import re
 
-def encode_class(orders):
-    classes = np.ndarray([len(POWERS)], dtype=object)
-    for i, power in enumerate(POWERS):
-        if power in orders:
-            if not orders[power] is None:
-                classes[i] = "^".join(sorted(orders[power]))
-            else:
-                classes[i] = ""
-        else:
-            classes[i] = ""
+def key_to_filename(key):
+    return re.sub(r"[\\/ \s]", "_", key)
 
-
-    encoding = "&".join(classes)
-    return encoding
-
-def decode_class(encoding):
-    classes = np.array(encoding.split("&"))
-    decoding = np.ndarray([len(POWERS)], dtype=object)
-    for i, power in enumerate(POWERS):
-        decoding[i] = classes[i].split("^")
-    return decoding
-
+# entry_to_vectors returns 3 lists:
+# [0] attributes: list of np array of attributes/features
+# [1] classes: list of orders
+# [2] keys: list of model types
 def entry_to_vectors(phase):
     state = phase["state"]
     orders = phase["orders"]
+
+    attributes = list()
+    classes = list()
+    keys = list()
+
+    phase_data = state["name"]
+    season_phase = phase_data[0] + phase_data[-1]
+
+    attribute = generate_attribute(phase)
+
+    for _, order_list in orders.items():
+        if not order_list is None:
+            for order in order_list:
+                # parse unit from order
+                order_terms = order.split(" ")
+                unit = " ".join(order_terms[0:2])
+                key = unit + " " + season_phase
+
+                attributes.append(attribute)
+                classes.append(order)
+                keys.append(key)
+        
+    return attributes, classes, keys
+
+def generate_attribute(phase):
+    state = phase["state"]
 
     FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
@@ -37,12 +49,12 @@ def entry_to_vectors(phase):
         'FR' : 4,
         'CD' : 5
     }
-
-    phase_data = state["name"]
-    units_data = state["units"]
-    centers_data = state["centers"]
-    homes_data = state["homes"]
-    influences_data = state["influence"]
+    
+    phase_data = state["name"] # get phase name e.g. W1901A
+    units_data = state["units"] # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
+    centers_data = state["centers"] # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
+    homes_data = state["homes"] # dict of starting territory of each power?
+    influences_data = state["influence"] # dict of powers to the territories under their influence (territories that are last occupied by them)
     n_powers = len(POWERS)
 
     phase_atr = np.zeros([len(phases)], dtype=bool)
@@ -51,7 +63,7 @@ def entry_to_vectors(phase):
     homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
     influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
 
-    season_phase = phase_data[0] + phase_data[-1]
+    season_phase = phase_data[0] + phase_data[-1] #get first and last letter of phase
     phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
@@ -82,28 +94,19 @@ def entry_to_vectors(phase):
                     if inf in influences_data[power]:
                         influences_atr[i * n_powers + j] = power
 
-    attributes = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
-    # Discretisation of orders as strings
-    classes = encode_class(orders)
-        
-    return attributes, classes, season_phase
+    attribute = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
-def generate_x_y(groups, src, split_phase_types=False):
-    if split_phase_types:    
-        for line in src:
-            game = json.loads(line)
-            for phase in game["phases"]:
-                vectors = entry_to_vectors(phase)
-                if not vectors[2] in groups.keys():
-                    groups[vectors[2]] = (list(), list())
-                groups[vectors[2]][0].append(vectors[0])
-                groups[vectors[2]][1].append(vectors[1])
-    else:
-        groups["all"] = (list(), list())    
-        for line in src:
-            game = json.loads(line)
-            for phase in game["phases"]:
-                vectors = entry_to_vectors(phase)
-                groups["all"][0].append(vectors[0])
-                groups["all"][1].append(vectors[1])
+    return attribute
+
+def generate_x_y(groups, src):
+    for line in src:
+        game = json.loads(line)
+        for phase in game["phases"]:
+            vectors = entry_to_vectors(phase)
+
+            for attribute, order, key in zip(vectors[0], vectors[1], vectors[2]):
+                if not key in groups.keys():
+                    groups[key] = (list(), list())
+                groups[key][0].append(attribute)
+                groups[key][1].append(order)

@@ -29,9 +29,6 @@ def main():
             """
             if i == 0:
                 break
-
-
-        # print(messages_count)
         
 
 if __name__ == "__main__":
