@@ -89,6 +89,7 @@ def generate_attribute(state):
                     if inf in influences_data[power]:
                         influences_atr[i * n_powers + j] = power
 
+
     attribute = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
     return attribute

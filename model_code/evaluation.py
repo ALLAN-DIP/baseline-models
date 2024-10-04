@@ -1,4 +1,6 @@
 from constants import *
+
+
 import os
 import pickle
 from preprocess import key_to_filename
@@ -17,6 +19,7 @@ class Results():
 
     def __repr__(self):
         output = f"Complete Correct: {self.all_correct}\nComplete Total: {self.all_total}\nComplete Accuracy: {(100 * self.all_accuracy):.2f}%"
+
         for model_type in self.class_accuracies.keys():
             output += f"\nClass Correct ({model_type}): {(self.class_corrects[model_type])}\n"
             output += f"Class Total ({model_type}): {(self.class_totals[model_type])}\n"
@@ -53,6 +56,19 @@ class Results():
             self.all_total += class_total
 
         self.all_accuracy = self.all_correct / self.all_total
+
+def order_accuracy(predicted, true):
+    correct = 0
+    total = 0
+
+    for i, power in enumerate(POWERS):
+        for order in predicted[i]:
+            correct += order in true[i]
+            total += 1
+        for order in true[i]:
+            correct += order in predicted[i]
+            total += 1
+    return correct, total
 
 def evaluate_model(test_dict, model_path):
     results = Results(model_path)
