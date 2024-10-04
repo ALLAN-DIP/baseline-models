@@ -34,7 +34,7 @@ class Splitter:
             file.close()
 
 if __name__ == "__main__":
-    src_path = os.path.join(os.sep, "Users", "nichowil", "Documents", "github", "darpa", "data", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
-    dest_path = os.path.join(os.sep, "Users", "nichowil", "Documents", "github", "darpa", "data", "dipnet-data-diplomacy-v1-27k-msgs", "test")
+    src_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
+    dest_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
     splitter = Splitter(src_path, dest_path, ratio_split=False, split_points=[100, 1100], split_names=["test.jsonl", "train.jsonl"], total_games=33279)
     splitter.split()
