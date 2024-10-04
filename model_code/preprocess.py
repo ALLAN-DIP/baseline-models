@@ -18,10 +18,8 @@ def entry_to_vectors(phase):
     classes = list()
     keys = list()
 
-    phase_data = state["name"]
-    season_phase = phase_data[0] + phase_data[-1]
-
-    attribute = generate_attribute(phase)
+    season_phase = get_season_phase(state)
+    attribute = generate_attribute(state)
 
     for _, order_list in orders.items():
         if not order_list is None:
@@ -37,9 +35,7 @@ def entry_to_vectors(phase):
         
     return attributes, classes, keys
 
-def generate_attribute(phase):
-    state = phase["state"]
-
+def generate_attribute(state):
     FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
         'SM' : 0,
@@ -50,7 +46,6 @@ def generate_attribute(phase):
         'CD' : 5
     }
 
-    phase_data = state["name"] # get phase name e.g. W1901A
     units_data = state["units"] # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
     centers_data = state["centers"] # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
     homes_data = state["homes"] # dict of starting territory of each power?
@@ -63,7 +58,7 @@ def generate_attribute(phase):
     homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
     influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
 
-    season_phase = phase_data[0] + phase_data[-1] #get first and last letter of phase
+    season_phase = get_season_phase(state)
     phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
@@ -97,6 +92,20 @@ def generate_attribute(phase):
     attribute = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
     return attribute
+
+def get_season_phase(state):
+    phase_data = state["name"]
+    return phase_data[0] + phase_data[-1]
+
+def get_units(state):
+    units = []
+    units_data = state["units"]
+    for _, unit_list in units_data.items():
+        if not unit_list == None:
+            for unit in unit_list:
+                units.append(unit)
+    return units
+
 
 def generate_x_y(groups, src):
     for line in src:
