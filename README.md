@@ -6,8 +6,7 @@ Perform the following setup to run the code.
 Install packages in requirements.txt to build the model with the correct version:
 - pip install -r requirements.txt
 
-To make code imports cleaner across multiple directories, packages were used in conjunction with setuptools
-To create the package:
+To make code imports cleaner across multiple directories, packages were used in conjunction with setuptools. To create the package:
 - pip install -e .
 
 ## TODO
