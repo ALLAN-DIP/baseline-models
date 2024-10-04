@@ -49,7 +49,7 @@ def generate_attribute(phase):
         'FR' : 4,
         'CD' : 5
     }
-
+    
     phase_data = state["name"] # get phase name e.g. W1901A
     units_data = state["units"] # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
     centers_data = state["centers"] # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
@@ -93,6 +93,7 @@ def generate_attribute(phase):
                 for i, inf in enumerate(TERRITORIES):
                     if inf in influences_data[power]:
                         influences_atr[i * n_powers + j] = power
+
 
     attribute = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
