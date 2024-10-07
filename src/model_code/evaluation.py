@@ -1,9 +1,8 @@
-from constants import *
-
-
 import os
 import pickle
-from preprocess import key_to_filename
+from model_code.preprocess import key_to_filename
+from model_code.constants import *
+
 
 class Results():
     def __init__(self, model_path):
@@ -57,6 +56,7 @@ class Results():
 
         self.all_accuracy = self.all_correct / self.all_total
 
+
 def order_accuracy(predicted, true):
     correct = 0
     total = 0
@@ -69,6 +69,7 @@ def order_accuracy(predicted, true):
             correct += order in predicted[i]
             total += 1
     return correct, total
+
 
 def evaluate_model(test_dict, model_path):
     results = Results(model_path)

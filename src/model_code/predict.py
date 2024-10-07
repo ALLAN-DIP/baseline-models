@@ -3,10 +3,10 @@ import pickle
 from time import time
 import json
 import numpy as np
-from preprocess import key_to_filename
-from preprocess import generate_attribute
-from preprocess import get_season_phase
-from preprocess import get_units
+from model_code.preprocess import key_to_filename
+from model_code.preprocess import generate_attribute
+from model_code.preprocess import get_season_phase
+from model_code.preprocess import get_units
 
 from visualisation_code.custom_renderer import render_from_prediction
 

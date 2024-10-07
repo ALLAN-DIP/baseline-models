@@ -1,10 +1,12 @@
 import numpy as np
-from constants import *
+from model_code.constants import *
 import json
 import re
 
+
 def key_to_filename(key):
     return re.sub(r"[\\/ \s]", "_", key)
+
 
 # entry_to_vectors returns 3 lists:
 # [0] attributes: list of np array of attributes/features
@@ -22,7 +24,7 @@ def entry_to_vectors(phase):
     attribute = generate_attribute(state)
 
     for _, order_list in orders.items():
-        if not order_list is None:
+        if order_list is not None:
             for order in order_list:
                 # parse unit from order
                 order_terms = order.split(" ")
@@ -32,24 +34,25 @@ def entry_to_vectors(phase):
                 attributes.append(attribute)
                 classes.append(order)
                 keys.append(key)
-        
+
     return attributes, classes, keys
 
+
 def generate_attribute(state):
-    FIELDS = ["powers", "centers", "homes", "influence"]
+    # FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
-        'SM' : 0,
-        'FM' : 1,
-        'WA' : 2,
-        'SR' : 3,
-        'FR' : 4,
-        'CD' : 5
+        'SM': 0,
+        'FM': 1,
+        'WA': 2,
+        'SR': 3,
+        'FR': 4,
+        'CD': 5
     }
 
-    units_data = state["units"] # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
-    centers_data = state["centers"] # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
-    homes_data = state["homes"] # dict of starting territory of each power?
-    influences_data = state["influence"] # dict of powers to the territories under their influence (territories that are last occupied by them)
+    units_data = state["units"]             # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
+    centers_data = state["centers"]         # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
+    homes_data = state["homes"]             # dict of starting territory of each power?
+    influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
     n_powers = len(POWERS)
 
     phase_atr = np.zeros([len(phases)], dtype=bool)
@@ -89,20 +92,21 @@ def generate_attribute(state):
                     if inf in influences_data[power]:
                         influences_atr[i * n_powers + j] = power
 
-
     attribute = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
     return attribute
+
 
 def get_season_phase(state):
     phase_data = state["name"]
     return phase_data[0] + phase_data[-1]
 
+
 def get_units(state):
     units = []
     units_data = state["units"]
     for _, unit_list in units_data.items():
-        if not unit_list == None:
+        if unit_list is not None:
             for unit in unit_list:
                 units.append(unit)
     return units
@@ -115,7 +119,7 @@ def generate_x_y(groups, src):
             vectors = entry_to_vectors(phase)
 
             for attribute, order, key in zip(vectors[0], vectors[1], vectors[2]):
-                if not key in groups.keys():
+                if key not in groups.keys():
                     groups[key] = (list(), list())
                 groups[key][0].append(attribute)
                 groups[key][1].append(order)

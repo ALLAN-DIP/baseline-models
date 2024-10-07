@@ -1,19 +1,19 @@
 import os
 
+
 class Splitter:
     def __init__(self, src_path, dest_path, ratio_split=True, split_points=[0.9, 1], split_names=["train.jsonl", "test.jsonl"], total_games=1000):
         self.src_path = src_path
         self.dest_path = dest_path
         self.split_names = split_names
-        
+
         if ratio_split:
             self.split_points = list(point * total_games for point in split_points)
             self.total_games = total_games
         else:
             self.split_points = split_points
             self.total_games = split_points[-1]
-        
-    
+
     def split(self):
         write_files = list()
         for name in self.split_names:
@@ -32,6 +32,7 @@ class Splitter:
 
         for file in write_files:
             file.close()
+
 
 if __name__ == "__main__":
     src_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")

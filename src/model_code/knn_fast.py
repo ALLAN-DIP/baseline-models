@@ -1,13 +1,12 @@
 from sklearn.neighbors import KNeighborsClassifier
 import os
-import json
-import numpy as np
-from constants import *
-from preprocess import generate_x_y
-from preprocess import key_to_filename
 from time import time
-from evaluation import evaluate_model
 import pickle
+
+from model_code.preprocess import generate_x_y
+from model_code.preprocess import key_to_filename
+from model_code.evaluation import evaluate_model
+
 
 def run_knn(train_path, test_path, model_path):
     train_dict = dict()
@@ -26,8 +25,8 @@ def run_knn(train_path, test_path, model_path):
 
         model = KNeighborsClassifier(n_neighbors=k, weights='uniform', algorithm='ball_tree', metric="hamming")
         model.fit(data[0], data[1])
-    
-        if model_path != None:
+
+        if model_path is not None:
             with open(os.path.join(model_path, key_to_filename(unit)), 'wb') as model_file:
                 pickle.dump(model, model_file)
 
@@ -35,10 +34,11 @@ def run_knn(train_path, test_path, model_path):
     test_dict = dict()
     with open(test_path, 'r') as test:
         generate_x_y(test_dict, test)
-    
+
     print("Evaluating model")
     results = evaluate_model(test_dict, model_path)
     print(results)
+
 
 def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
