@@ -1,6 +1,6 @@
 from xml.dom import minidom
 
-from diplomacy.engine.renderer import Renderer, _attr, ARMY
+from diplomacy.engine.renderer import Renderer, _attr, ARMY, FLEET
 from diplomacy.utils.equilateral_triangle import EquilateralTriangle
 from visualisation_code.utils import OrderEnum
 from visualisation_code.dict_to_state import dict_to_state
@@ -22,7 +22,6 @@ def render_from_prediction(state, predictions, output_path):
                     alterations[i].append(order)
                 break
 
-    print(alterations)
     renderer.custom_render(output_path=output_path, alterations=alterations)
 
 
@@ -50,7 +49,10 @@ class CustomRenderer(Renderer):
             OrderEnum.MOVE_ORDER: self._issue_move_order,
             OrderEnum.SUPPORT_MOVE_ORDER: self._issue_support_move_order,
             OrderEnum.SUPPORT_HOLD_ORDER: self._issue_support_hold_order,
-            OrderEnum.CONVOY_ORDER: self._issue_convoy_order
+            OrderEnum.CONVOY_ORDER: self._issue_convoy_order,
+
+            OrderEnum.BUILD_ORDER: self._issue_build_order,
+            OrderEnum.DISBAND_ORDER: self._issue_disband_order
         }
 
         self.custom_order_dict = {
@@ -59,7 +61,10 @@ class CustomRenderer(Renderer):
             OrderEnum.MOVE_ORDER: self.custom_issue_move_order,
             OrderEnum.SUPPORT_MOVE_ORDER: self.custom_issue_support_move_order,
             OrderEnum.SUPPORT_HOLD_ORDER: self.custom_issue_support_hold_order,
-            OrderEnum.CONVOY_ORDER: self.custom_issue_convoy_order
+            OrderEnum.CONVOY_ORDER: self.custom_issue_convoy_order,
+
+            OrderEnum.BUILD_ORDER: self.custom_issue_build_order,
+            OrderEnum.DISBAND_ORDER: self.custom_issue_disband_order
         }
 
     def apply_weight_opacity(g_node, weight):
@@ -140,7 +145,7 @@ class CustomRenderer(Renderer):
                         order = power.orders[order_key]
                     else:
                         order = '{} {}'.format(order_key, power.orders[order_key])
-                    order_type, order_args = self.parse_order(order, power)
+                    order_type, order_args = self.parse_regular_order(order, power)
                     xml_map = self.display_order(order_type, order_args, xml_map)
 
                 # Adjustment orders
@@ -150,28 +155,15 @@ class CustomRenderer(Renderer):
                 # A PAR R BUR
                 # WAIVE
                 for order in power.adjust:
-                    tokens = order.split()
-                    if not tokens or tokens[0] == 'VOID' or tokens[-1] == 'WAIVE':
-                        continue
-                    elif tokens[-1] == 'B':
-                        if len(tokens) < 3:
-                            continue
-                        xml_map = self._issue_build_order(xml_map, tokens[0], tokens[1], power.name)
-                    elif tokens[-1] == 'D':
-                        xml_map = self._issue_disband_order(xml_map, tokens[1])
-                    elif tokens[-2] == 'R':
-                        src_loc = tokens[1] if tokens[0] == 'A' or tokens[0] == 'F' else tokens[0]
-                        dest_loc = tokens[-1]
-                        xml_map = self._issue_move_order(xml_map, src_loc, dest_loc, power.name)
-                    else:
-                        raise RuntimeError('Unknown order: {}'.format(order))
+                    order_type, order_args = self.parse_adjustment_order(order, power)
 
             # Alterations
             if alterations:
-                print(alterations[i])
                 for (order, weight) in alterations[i]:
                     order = order.replace('\\', '')
-                    order_type, order_args = self.parse_order(order, power)
+                    order_type, order_args = self.parse_regular_order(order, power)
+                    if not order_type:
+                        order_type, order_args = self.parse_adjustment_order(order, power)
                     xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
 
         # Removing abbrev and mouse layer
@@ -207,7 +199,7 @@ class CustomRenderer(Renderer):
         else:
             return self.custom_order_dict[order_type](xml_map, *order_args, weight)
 
-    def parse_order(self, order, power):
+    def parse_regular_order(self, order, power):
 
         # Normalizing and splitting in tokens
         tokens = self._norm_order(order)
@@ -238,7 +230,28 @@ class CustomRenderer(Renderer):
             if src_loc != dest_loc and '-' in tokens:
                 return OrderEnum.CONVOY_ORDER, [unit_loc, src_loc, dest_loc, power.name]
         else:
-            raise RuntimeError('Unknown order: {}'.format(' '.join(tokens)))
+            return None, None
+
+    def parse_adjustment_order(self, order, power):
+        tokens = order.split()
+        if not tokens or tokens[0] == 'VOID' or tokens[-1] == 'WAIVE':
+            return None, None
+
+        elif tokens[-1] == 'B':
+            if len(tokens) < 3:
+                return None, None
+            return OrderEnum.BUILD_ORDER, [tokens[0], tokens[1], power.name]
+
+        elif tokens[-1] == 'D':
+            return OrderEnum.DISBAND_ORDER, [tokens[1]]
+
+        elif tokens[-2] == 'R':
+            src_loc = tokens[1] if tokens[0] == 'A' or tokens[0] == 'F' else tokens[0]
+            dest_loc = tokens[-1]
+            return OrderEnum.MOVE_ORDER, [src_loc, dest_loc, power.name]
+
+        else:
+            return None, None
 
     def custom_set_influence(self, xml_map, loc, power_name, has_supply_center=False):
         """ Sets the influence on the map
@@ -597,8 +610,11 @@ class CustomRenderer(Renderer):
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', symbol_loc_x)
         symbol_node.setAttribute('y', symbol_loc_y)
-        symbol_node.setAttribute('height', self.metadata['symbol_size'][symbol][0])
-        symbol_node.setAttribute('width', self.metadata['symbol_size'][symbol][1])
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+
+        symbol_node.setAttribute('height', str(symbol_height))
+        symbol_node.setAttribute('width', str(symbol_width))
         symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
 
         # Creating nodes
@@ -647,6 +663,90 @@ class CustomRenderer(Renderer):
                     if layer_node.nodeName == 'g' and _attr(layer_node, 'id') == 'Layer2':
                         layer_node.appendChild(g_node)
                         return xml_map
+
+        # Returning
+        return xml_map
+
+    def custom_issue_build_order(self, xml_map, unit_type, loc, power_name, weight):
+        """ Adds a build army/fleet order to the map
+
+            :param xml_map: The xml map being generated
+            :param unit_type: The unit type to build ('A' or 'F')
+            :param loc: The province where the army is to be built (e.g. 'PAR')
+            :param power_name: The name of the power building the unit
+            :return: Nothing
+        """
+        # Symbols
+        symbol = ARMY if unit_type == 'A' else FLEET
+        build_symbol = 'BuildUnit'
+
+        loc_x = self.metadata['coord'][loc]['unit'][0]
+        loc_y = self.metadata['coord'][loc]['unit'][1]
+        build_loc_x, build_loc_y = self.custom_center_symbol_around_unit(loc, False, build_symbol, weight)
+
+        # Creating nodes
+        g_node = xml_map.createElement('g')
+        CustomRenderer.apply_weight_opacity(g_node, weight)
+
+        symbol_node = xml_map.createElement('use')
+        symbol_node.setAttribute('x', loc_x)
+        symbol_node.setAttribute('y', loc_y)
+
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+        symbol_node.setAttribute('height', str(symbol_height))
+        symbol_node.setAttribute('width', str(symbol_width))
+        symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
+        symbol_node.setAttribute('class', 'unit{}'.format(power_name.lower()))
+
+        build_node = xml_map.createElement('use')
+        build_node.setAttribute('x', build_loc_x)
+        build_node.setAttribute('y', build_loc_y)
+        build_node.setAttribute('height', self.metadata['symbol_size'][build_symbol][0])
+        build_node.setAttribute('width', self.metadata['symbol_size'][build_symbol][1])
+        build_node.setAttribute('xlink:href', '#{}'.format(build_symbol))
+
+        # Inserting
+        g_node.appendChild(build_node)
+        g_node.appendChild(symbol_node)
+        for child_node in xml_map.getElementsByTagName('svg')[0].childNodes:
+            if child_node.nodeName == 'g' and _attr(child_node, 'id') == 'HighestOrderLayer':
+                child_node.appendChild(g_node)
+                return xml_map
+
+        # Returning
+        return xml_map
+
+    def custom_issue_disband_order(self, xml_map, loc, weight):
+        """ Adds a disband order to the map
+
+            :param xml_map: The xml map being generated
+            :param loc: The province where the unit is disbanded (e.g. 'PAR')
+            :return: Nothing
+        """
+        # Symbols
+        symbol = 'RemoveUnit'
+        loc_x, loc_y = self.custom_center_symbol_around_unit(loc, self.game.get_current_phase()[-1] == 'R', symbol, weight)
+
+        # Creating nodes
+        g_node = xml_map.createElement('g')
+        CustomRenderer.apply_weight_opacity(g_node, weight)
+        symbol_node = xml_map.createElement('use')
+        symbol_node.setAttribute('x', loc_x)
+        symbol_node.setAttribute('y', loc_y)
+
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+        symbol_node.setAttribute('height', str(symbol_height))
+        symbol_node.setAttribute('width', str(symbol_width))
+        symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
+
+        # Inserting
+        g_node.appendChild(symbol_node)
+        for child_node in xml_map.getElementsByTagName('svg')[0].childNodes:
+            if child_node.nodeName == 'g' and _attr(child_node, 'id') == 'HighestOrderLayer':
+                child_node.appendChild(g_node)
+                return xml_map
 
         # Returning
         return xml_map

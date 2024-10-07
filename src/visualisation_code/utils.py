@@ -8,3 +8,6 @@ class OrderEnum(Enum):
     SUPPORT_MOVE_ORDER = 3
     SUPPORT_HOLD_ORDER = 4
     CONVOY_ORDER = 5
+
+    BUILD_ORDER = 6
+    DISBAND_ORDER = 7

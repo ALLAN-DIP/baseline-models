@@ -49,13 +49,13 @@ def main():
     with open(test_path, 'r') as test:
         for i, line in enumerate(test):
             game = json.loads(line)
-            for j, phase in enumerate(game["phases"]):
+            for phase in game["phases"]:
                 state = phase["state"]
-                print(f"Current state: {state["name"]}")
+                name = state["name"]
 
-                # Break if not move face (rendering to be implemented)
-                if state["name"][-1] != 'M':
+                if name == "COMPLETED":
                     continue
+                print(f"Current state: {name}")
 
                 pred_probs = predict(model_path, state)
                 sorted_probs = dict()
@@ -66,7 +66,11 @@ def main():
                     # Only render first unit in dict for simplicity
                     break
 
-                render_from_prediction(state, sorted_probs, os.path.join(output_path, f"output_{i}_{j}.svg"))
+                render_from_prediction(state, sorted_probs, os.path.join(output_path, f"output_{i}_{state["name"]}.svg"))
+
+            # Break after 5 games
+            if i == 4:
+                break
 
 
 if __name__ == "__main__":
