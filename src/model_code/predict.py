@@ -40,16 +40,11 @@ def predict(model_path, state):
     return pred_orders
 
 
-def main():
-    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
-    test_path = os.path.join(data_path, "test.jsonl")
-    model_path = os.path.join(data_path, "knn_models")
-    output_path = os.path.join(os.getcwd(), "output")
-
+def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=-1, max_units=-1):
     with open(test_path, 'r') as test:
         for i, line in enumerate(test):
             game = json.loads(line)
-            for phase in game["phases"]:
+            for j, phase in enumerate(game["phases"]):
                 state = phase["state"]
                 name = state["name"]
 
@@ -61,16 +56,32 @@ def main():
                 sorted_probs = dict()
 
                 # Taking the top three orders for each army
-                for unit, orders in pred_probs.items():
+                for k, (unit, orders) in enumerate(pred_probs.items()):
                     sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:3]
-                    # Only render first unit in dict for simplicity
+                    if "/" in unit:
+                        unit = unit[:-3]
+                    file_name = f"output_{i}_{state["name"]}_{unit}.svg".replace(" ", "_")
+                    print(file_name)
+                    render_from_prediction(state, sorted_probs, os.path.join(output_path, file_name))
+                    sorted_probs.clear()
+
+                    if k == max_units - 1:
+                        break
+
+                if j == max_phases - 1:
                     break
 
-                render_from_prediction(state, sorted_probs, os.path.join(output_path, f"output_{i}_{state["name"]}.svg"))
-
-            # Break after 5 games
-            if i == 4:
+            if i == max_games - 1:
                 break
+
+
+def main():
+    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
+    test_path = os.path.join(data_path, "test.jsonl")
+    model_path = os.path.join(data_path, "knn_models")
+    output_path = os.path.join(os.getcwd(), "output")
+
+    render_outputs(model_path, test_path, output_path, max_games=1, max_phases=1)
 
 
 if __name__ == "__main__":
