@@ -10,11 +10,18 @@ from model_code.preprocess import get_units
 
 from visualisation_code.custom_renderer import render_from_prediction
 
+from diplomacy.engine.game import Game
+
 
 RENDER_RESULT = True
 
 
 def predict(model_path, state):
+
+    game = Game(map_name = state["map"])
+    #print(game.get_map_power_names())
+    game.set_state(state)
+
     pred_orders = dict()
     attribute = generate_attribute(state)
     season_phase = get_season_phase(state)
@@ -30,9 +37,17 @@ def predict(model_path, state):
                 attribute = np.reshape(attribute, (1, -1))
                 pred_proba = model.predict_proba(attribute)
 
+                valid_orders = game.get_all_possible_orders()
+
                 pred_order_proba = []
                 for order, prob in zip(model.classes_, pred_proba[0]):
-                    pred_order_proba.append((order, prob))
+                    order_terms = order.split(" ")
+                    loc = order_terms[1]
+                    if loc in valid_orders.keys():
+                        pred_order_proba.append((order, prob))
+                    else:
+                        pred_order_proba.append((order, 0.0))
+
 
                 pred_orders[unit] = pred_order_proba
         else:

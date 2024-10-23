@@ -27,7 +27,7 @@ class Results():
 
     def evaluate(self, test_dict):
         for model_type, data in test_dict.items():
-            print(f"Predicting for key {model_type}")
+            #print(f"Predicting for key {model_type}")
 
             class_correct = 0
             class_total = 0
