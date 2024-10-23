@@ -1,50 +1,42 @@
 from sklearn.linear_model import LogisticRegression
 from time import time
 import os
+import pickle
 from model_code.preprocess import generate_x_y
+from model_code.preprocess import key_to_filename
 from model_code.constants import *
 from model_code.evaluation import evaluate_model
 
 
-def order_accuracy(predicted, true):
-    # print(f"Predicted: {predicted}\nTrue: {true}\n")
-    macro_correct = 0
-    macro_total = len(POWERS)
-    micro_correct = 0
-    micro_total = 0
-
-    for i, power in enumerate(POWERS):
-        macro_correct += predicted[i] == true[i]
-        for order in predicted[i]:
-            micro_correct += order in true[i]
-            micro_total += 1
-        for order in true[i]:
-            micro_correct += order in predicted[i]
-            micro_total += 1
-    return macro_correct, micro_correct, macro_total, micro_total
-
-
-def run_lr(train_path, test_path):
+def run_lr(train_path, test_path, model_path):
     train_dict = dict()
-    split_phases = False
 
     print("Preprocessing training data")
     with open(train_path, 'r') as train:
-        generate_x_y(train_dict, train, split_phase_types=split_phases)
+        generate_x_y(train_dict, train)
 
-    models = dict()
     print("Training models")
-    for phase_type, data in train_dict.items():
-        models[phase_type] = LogisticRegression(random_state=1)
-        models[phase_type].fit(data[0], data[1])
+    for unit, data in train_dict.items():
+        #print(f"Sample size for {unit}: {len(data[0])}")
 
+        # skip if there is only 1 class
+        if len(set(data[1])) <= 1:
+            continue
+
+        model = LogisticRegression(random_state=1, solver='lbfgs', C=0.01)
+        model.fit(data[0], data[1])
+    
+        if model_path != None:
+            with open(os.path.join(model_path, key_to_filename(unit)), 'wb') as model_file:
+                pickle.dump(model, model_file)
+    
     print("Preprocessing testing data")
     test_dict = dict()
     with open(test_path, 'r') as test:
-        generate_x_y(test_dict, test, split_phase_types=split_phases)
-
+        generate_x_y(test_dict, test)
+    
     print("Evaluating model")
-    results = evaluate_model(test_dict, models, split_phase_types=split_phases)
+    results = evaluate_model(test_dict, model_path)
     print(results)
 
 
@@ -52,9 +44,9 @@ def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
+    model_path = os.path.join(data_path, "lr_models")
 
-    run_lr(train_path, test_path)
-
+    run_lr(train_path, test_path, model_path)
 
 if __name__ == "__main__":
     start_time = time()
