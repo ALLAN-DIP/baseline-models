@@ -58,6 +58,13 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
                 # Taking the top three orders for each army
                 for k, (unit, orders) in enumerate(pred_probs.items()):
                     sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:3]
+
+                    # Scaling probabilities
+                    scalar = sorted_probs[unit][0][1]
+                    if scalar > 0:
+                        for m in range(len(sorted_probs[unit])):
+                            sorted_probs[unit][m] = (sorted_probs[unit][m][0], sorted_probs[unit][m][1] / scalar)
+
                     if "/" in unit:
                         unit = unit[:-3]
                     file_name = f"output_{i}_{state["name"]}_{unit}.svg".replace(" ", "_")
