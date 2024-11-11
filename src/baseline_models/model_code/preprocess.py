@@ -1,5 +1,5 @@
 import numpy as np
-from model_code.constants import *
+from baseline_models.model_code.constants import *
 import json
 import re
 

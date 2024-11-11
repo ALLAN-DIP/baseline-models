@@ -1,7 +1,7 @@
 import os
 import pickle
-from model_code.preprocess import key_to_filename
-from model_code.constants import *
+from baseline_models.model_code.preprocess import key_to_filename
+from baseline_models.model_code.constants import *
 
 
 class Results():

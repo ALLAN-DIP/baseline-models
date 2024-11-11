@@ -3,9 +3,9 @@ import os
 from time import time
 import pickle
 
-from model_code.preprocess import generate_x_y
-from model_code.preprocess import key_to_filename
-from model_code.evaluation import evaluate_model
+from baseline_models.model_code.preprocess import generate_x_y
+from baseline_models.model_code.preprocess import key_to_filename
+from baseline_models.model_code.evaluation import evaluate_model
 
 
 def run_knn(train_path, test_path, model_path):
