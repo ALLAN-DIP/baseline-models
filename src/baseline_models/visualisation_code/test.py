@@ -1,6 +1,6 @@
-from visualisation_code.custom_renderer import CustomRenderer
+from baseline_models.visualisation_code.custom_renderer import CustomRenderer
 from diplomacy import Game
-from visualisation_code.dict_to_state import dict_to_state
+from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
 import os
 
