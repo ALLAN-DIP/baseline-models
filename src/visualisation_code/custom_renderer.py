@@ -32,6 +32,7 @@ class CustomRenderer(Renderer):
         self.phase = phase
         self.background = None
         self.background_inserted = False
+        self.shadow_scalar = 1.5
 
         self.opacities = {
             "austria": 0.5,
@@ -71,7 +72,7 @@ class CustomRenderer(Renderer):
         g_node.setAttribute('opacity', str(weight))
 
     def scale_weight(weight):
-        return 1.2 - (1 - weight) * 3 / 4
+        return 1.5 - (1 - weight) * 3 / 4
 
     # Adapted from the renderer method of the Renderer class
     def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None):
@@ -89,8 +90,14 @@ class CustomRenderer(Renderer):
         for style in style_elements:
             style_contents = style.firstChild.nodeValue
             if '.shadowdash' in style_contents:
-                new_contents = style_contents.replace('opacity:0.45', '').strip()
-                style.firstChild.nodeValue = new_contents
+                style_contents = style_contents.replace('opacity:0.45', '').strip()
+                style_contents = style_contents.replace('stroke-width:10', '').strip()
+            if '.convoyorder' in style_contents:
+                style_contents = style_contents.replace('stroke-width:6', '').strip()
+            if '.supportorder' in style_contents:
+                style_contents = style_contents.replace('stroke-width:6', '').strip()
+            style.firstChild.nodeValue = style_contents
+
         altered_symbols = ["ConvoyTriangle", "SupportHoldUnit"]
         for symbol in altered_symbols:
             symbol_element = None
@@ -408,7 +415,7 @@ class CustomRenderer(Renderer):
         line_with_shadow.setAttribute('x2', dest_loc_x)
         line_with_shadow.setAttribute('y2', dest_loc_y)
         line_with_shadow.setAttribute('class', 'varwidthshadow')
-        line_with_shadow.setAttribute('stroke-width', str(self._plain_stroke_width()))
+        line_with_shadow.setAttribute('stroke-width', str(self._plain_stroke_width() * CustomRenderer.scale_weight(weight)))
 
         line_with_arrow = xml_map.createElement('line')
         line_with_arrow.setAttribute('x1', src_loc_x)
@@ -439,14 +446,16 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the move order
             :return: Nothing
         """
+        scaled_weight = CustomRenderer.scale_weight(weight)
+
         # Symbols
         symbol = 'SupportHoldUnit'
         symbol_loc_x, symbol_loc_y = self.custom_center_symbol_around_unit(dest_loc, False, symbol, weight)
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', symbol_loc_x)
         symbol_node.setAttribute('y', symbol_loc_y)
-        symbol_node.setAttribute('height', str(float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)))
-        symbol_node.setAttribute('width', str(float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)))
+        symbol_node.setAttribute('height', str(float(self.metadata['symbol_size'][symbol][0]) * scaled_weight))
+        symbol_node.setAttribute('width', str(float(self.metadata['symbol_size'][symbol][1]) * scaled_weight))
         symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
 
         loc_x, loc_y = self._get_unit_center(loc, False)
@@ -456,7 +465,7 @@ class CustomRenderer(Renderer):
         delta_x = dest_loc_x - loc_x
         delta_y = dest_loc_y - loc_y
         vector_length = (delta_x ** 2 + delta_y ** 2) ** 0.5
-        delta_dec = float(self.metadata['symbol_size'][symbol][1]) / 2
+        delta_dec = float(self.metadata['symbol_size'][symbol][1]) * scaled_weight / 2
         dest_loc_x = round(loc_x + (vector_length - delta_dec) / vector_length * delta_x, 2)
         dest_loc_y = round(loc_y + (vector_length - delta_dec) / vector_length * delta_y, 2)
 
@@ -472,12 +481,16 @@ class CustomRenderer(Renderer):
         shadow_line.setAttribute('y2', str(dest_loc_y))
         shadow_line.setAttribute('class', 'shadowdash')
 
+        shadow_line.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
+
         support_line = xml_map.createElement('line')
         support_line.setAttribute('x1', str(loc_x))
         support_line.setAttribute('y1', str(loc_y))
         support_line.setAttribute('x2', str(dest_loc_x))
         support_line.setAttribute('y2', str(dest_loc_y))
-        support_line.setAttribute('class', 'supportorder')
+        support_line.setAttribute('class', 'convoyorder')
+
+        support_line.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
 
         # Inserting
         g_node.appendChild(shadow_line)
@@ -504,6 +517,7 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the move order
             :return: Nothing
         """
+        scaled_weight = CustomRenderer.scale_weight(weight)
         loc_x, loc_y = self._get_unit_center(loc, False)
         src_loc_x, src_loc_y = self._get_unit_center(src_loc, False)
         dest_loc_x, dest_loc_y = self._get_unit_center(dest_loc, False)
@@ -522,6 +536,7 @@ class CustomRenderer(Renderer):
 
         path_with_shadow = xml_map.createElement('path')
         path_with_shadow.setAttribute('class', 'shadowdash')
+        path_with_shadow.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
         path_with_shadow.setAttribute('d', 'M {x},{y} C {src_x},{src_y} {src_x},{src_y} {dest_x},{dest_y}'
                                       .format(x=loc_x,
                                               y=loc_y,
@@ -531,8 +546,8 @@ class CustomRenderer(Renderer):
                                               dest_y=dest_loc_y))
 
         path_with_arrow = xml_map.createElement('path')
-        path_with_arrow.setAttribute('class', 'supportorder')
-        path_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width() * 8 * CustomRenderer.scale_weight(weight)))
+        path_with_arrow.setAttribute('class', 'convoyorder')
+        path_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
         path_with_arrow.setAttribute('stroke', self.metadata['color'][power_name])
         path_with_arrow.setAttribute('marker-end', 'url(#arrow)')
         path_with_arrow.setAttribute('d', 'M {x},{y} C {src_x},{src_y} {src_x},{src_y} {dest_x},{dest_y}'
@@ -566,17 +581,19 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the convoy order
             :return: Nothing
         """
+        scaled_weight = CustomRenderer.scale_weight(weight)
         symbol = 'ConvoyTriangle'
+
         symbol_loc_x, symbol_loc_y = self.custom_center_symbol_around_unit(src_loc, False, symbol, weight)
-        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
-        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * scaled_weight
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * scaled_weight
         triangle = EquilateralTriangle(x_top=float(symbol_loc_x) + symbol_width / 2,
                                        y_top=float(symbol_loc_y),
                                        x_right=float(symbol_loc_x) + symbol_width,
                                        y_right=float(symbol_loc_y) + symbol_height,
                                        x_left=float(symbol_loc_x),
                                        y_left=float(symbol_loc_y) + symbol_height)
-        symbol_loc_y = str(float(symbol_loc_y) - float(self.metadata['symbol_size'][symbol][0]) / 6)
+        symbol_loc_y = str(float(symbol_loc_y) - scaled_weight * float(self.metadata['symbol_size'][symbol][0]) / 6)
 
         loc_x, loc_y = self._get_unit_center(loc, False)
         src_loc_x, src_loc_y = self._get_unit_center(src_loc, False)
@@ -610,8 +627,8 @@ class CustomRenderer(Renderer):
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', symbol_loc_x)
         symbol_node.setAttribute('y', symbol_loc_y)
-        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
-        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * scaled_weight
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * scaled_weight
 
         symbol_node.setAttribute('height', str(symbol_height))
         symbol_node.setAttribute('width', str(symbol_width))
@@ -628,6 +645,7 @@ class CustomRenderer(Renderer):
         src_shadow_line.setAttribute('x2', src_loc_x_1)
         src_shadow_line.setAttribute('y2', src_loc_y_1)
         src_shadow_line.setAttribute('class', 'shadowdash')
+        src_shadow_line.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
 
         src_convoy_line = xml_map.createElement('line')
         src_convoy_line.setAttribute('x1', loc_x)
@@ -635,6 +653,7 @@ class CustomRenderer(Renderer):
         src_convoy_line.setAttribute('x2', src_loc_x_1)
         src_convoy_line.setAttribute('y2', src_loc_y_1)
         src_convoy_line.setAttribute('class', 'convoyorder')
+        src_convoy_line.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
 
         dest_shadow_line = xml_map.createElement('line')
         dest_shadow_line.setAttribute('x1', src_loc_x_2)
@@ -642,6 +661,7 @@ class CustomRenderer(Renderer):
         dest_shadow_line.setAttribute('x2', dest_loc_x)
         dest_shadow_line.setAttribute('y2', dest_loc_y)
         dest_shadow_line.setAttribute('class', 'shadowdash')
+        dest_shadow_line.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
 
         dest_convoy_line = xml_map.createElement('line')
         dest_convoy_line.setAttribute('x1', src_loc_x_2)
@@ -650,6 +670,7 @@ class CustomRenderer(Renderer):
         dest_convoy_line.setAttribute('y2', dest_loc_y)
         dest_convoy_line.setAttribute('class', 'convoyorder')
         dest_convoy_line.setAttribute('marker-end', 'url(#arrow)')
+        dest_convoy_line.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
 
         # Inserting
         g_node.appendChild(src_shadow_line)
