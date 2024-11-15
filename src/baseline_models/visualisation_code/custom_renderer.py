@@ -2,10 +2,10 @@ from xml.dom import minidom
 
 from diplomacy.engine.renderer import Renderer, _attr, ARMY, FLEET
 from diplomacy.utils.equilateral_triangle import EquilateralTriangle
-from visualisation_code.utils import OrderEnum
-from visualisation_code.dict_to_state import dict_to_state
+from baseline_models.visualisation_code.utils import OrderEnum
+from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
-from model_code.constants import POWERS
+from baseline_models.model_code.constants import POWERS
 
 
 def render_from_prediction(state, predictions, output_path):

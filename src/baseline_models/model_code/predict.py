@@ -4,12 +4,12 @@ from time import time
 import json
 import numpy as np
 
-from model_code.preprocess import key_to_filename
-from model_code.preprocess import generate_attribute
-from model_code.preprocess import get_season_phase
-from model_code.preprocess import get_units
+from baseline_models.model_code.preprocess import key_to_filename
+from baseline_models.model_code.preprocess import generate_attribute
+from baseline_models.model_code.preprocess import get_season_phase
+from baseline_models.model_code.preprocess import get_units
 
-from visualisation_code.custom_renderer import render_from_prediction
+from baseline_models.visualisation_code.custom_renderer import render_from_prediction
 
 
 RENDER_RESULT = True

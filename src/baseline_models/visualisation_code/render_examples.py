@@ -1,6 +1,6 @@
-from visualisation_code.custom_renderer import CustomRenderer
-from visualisation_code.dict_to_state import dict_to_state
-from visualisation_code.examples import EXAMPLE_RENDERS
+from baseline_models.visualisation_code.custom_renderer import CustomRenderer
+from baseline_models.visualisation_code.dict_to_state import dict_to_state
+from baseline_models.visualisation_code.examples import EXAMPLE_RENDERS
 
 import os
 from argparse import ArgumentParser
