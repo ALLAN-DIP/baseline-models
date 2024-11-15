@@ -3,6 +3,7 @@ import pickle
 from time import time
 import json
 import numpy as np
+
 from model_code.preprocess import key_to_filename
 from model_code.preprocess import generate_attribute
 from model_code.preprocess import get_season_phase
@@ -40,7 +41,7 @@ def predict(model_path, state):
     return pred_orders
 
 
-def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=-1, max_units=-1):
+def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=-1, max_units=-1, max_orders=100):
     with open(test_path, 'r') as test:
         for i, line in enumerate(test):
             game = json.loads(line)
@@ -57,7 +58,7 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
 
                 # Taking the top three orders for each army
                 for k, (unit, orders) in enumerate(pred_probs.items()):
-                    sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:3]
+                    sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:max(max_orders, len(orders))]
 
                     # Scaling probabilities
                     scalar = sorted_probs[unit][0][1]
@@ -88,7 +89,7 @@ def main():
     model_path = os.path.join(data_path, "knn_models")
     output_path = os.path.join(os.getcwd(), "output")
 
-    render_outputs(model_path, test_path, output_path, max_games=1, max_phases=1)
+    render_outputs(model_path, test_path, output_path, max_games=2, max_orders=6)
 
 
 if __name__ == "__main__":
