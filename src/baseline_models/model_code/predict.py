@@ -58,7 +58,7 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
 
                 # Taking the top three orders for each army
                 for k, (unit, orders) in enumerate(pred_probs.items()):
-                    sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:max(max_orders, len(orders))]
+                    sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:min(max_orders, len(orders))]
 
                     # Scaling probabilities
                     scalar = sorted_probs[unit][0][1]
@@ -86,7 +86,8 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
 def main():
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     test_path = os.path.join(data_path, "test.jsonl")
-    model_path = os.path.join(data_path, "knn_models")
+    # model_path = os.path.join(data_path, "knn_models")
+    model_path = os.path.join("D:", os.sep, "Downloads", "lr_24102024", "lr_24102024")
     output_path = os.path.join(os.getcwd(), "output")
 
     render_outputs(model_path, test_path, output_path, max_games=2, max_orders=6)

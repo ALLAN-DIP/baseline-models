@@ -25,16 +25,16 @@ def run_lr(train_path, test_path, model_path):
 
         model = LogisticRegression(random_state=1, solver='lbfgs', C=0.01)
         model.fit(data[0], data[1])
-    
+
         if model_path != None:
             with open(os.path.join(model_path, key_to_filename(unit)), 'wb') as model_file:
                 pickle.dump(model, model_file)
-    
+
     print("Preprocessing testing data")
     test_dict = dict()
     with open(test_path, 'r') as test:
         generate_x_y(test_dict, test)
-    
+
     print("Evaluating model")
     results = evaluate_model(test_dict, model_path)
     print(results)

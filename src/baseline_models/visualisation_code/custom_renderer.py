@@ -5,7 +5,7 @@ from diplomacy.utils.equilateral_triangle import EquilateralTriangle
 from baseline_models.visualisation_code.utils import OrderEnum
 from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
-from baseline_models.model_code.constants import POWERS
+from baseline_models.model_code.constants import POWERS, TERRITORIES
 
 
 def render_from_prediction(state, predictions, output_path):
@@ -128,50 +128,60 @@ class CustomRenderer(Renderer):
 
         # Adding units and influence
         for i, power in enumerate(self.game.powers.values()):
-            for unit in power.units:
-                xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=False)
-            for unit in power.retreats:
-                xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=True)
-            for center in power.centers:
-                xml_map = self.custom_set_influence(xml_map, center, power.name, has_supply_center=True)
-            for loc in power.influence:
-                xml_map = self.custom_set_influence(xml_map, loc, power.name, has_supply_center=False)
+            """
+            Try except block is for catching errors to do with invalid inputs that break rendering
+            So far, these issues include:
+                - Division by 0 when an army supports / attacks itself
+                - Non-existant territories (checked in code now)
+            """
+            try:
+                for unit in power.units:
+                    xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=False)
+                for unit in power.retreats:
+                    xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=True)
+                for center in power.centers:
+                    xml_map = self.custom_set_influence(xml_map, center, power.name, has_supply_center=True)
+                for loc in power.influence:
+                    xml_map = self.custom_set_influence(xml_map, loc, power.name, has_supply_center=False)
 
-            # Orders
-            if incl_orders:
+                # Orders
+                if incl_orders:
 
-                # Regular orders (Normalized)
-                # A PAR H
-                # A PAR - BUR [VIA]
-                # A PAR S BUR
-                # A PAR S F BRE - PIC
-                # F BRE C A PAR - LON
-                for order_key in power.orders:
+                    # Regular orders (Normalized)
+                    # A PAR H
+                    # A PAR - BUR [VIA]
+                    # A PAR S BUR
+                    # A PAR S F BRE - PIC
+                    # F BRE C A PAR - LON
+                    for order_key in power.orders:
+                        if order_key[0] in 'RIO':
+                            order = power.orders[order_key]
+                        else:
+                            order = '{} {}'.format(order_key, power.orders[order_key])
+                        order_type, order_args = self.parse_regular_order(order, power)
+                        xml_map = self.display_order(order_type, order_args, xml_map)
 
-                    if order_key[0] in 'RIO':
-                        order = power.orders[order_key]
-                    else:
-                        order = '{} {}'.format(order_key, power.orders[order_key])
-                    order_type, order_args = self.parse_regular_order(order, power)
-                    xml_map = self.display_order(order_type, order_args, xml_map)
-
-                # Adjustment orders
-                # VOID xxx
-                # A PAR B
-                # A PAR D
-                # A PAR R BUR
-                # WAIVE
-                for order in power.adjust:
-                    order_type, order_args = self.parse_adjustment_order(order, power)
-
-            # Alterations
-            if alterations:
-                for (order, weight) in alterations[i]:
-                    order = order.replace('\\', '')
-                    order_type, order_args = self.parse_regular_order(order, power)
-                    if not order_type:
+                    # Adjustment orders
+                    # VOID xxx
+                    # A PAR B
+                    # A PAR D
+                    # A PAR R BUR
+                    # WAIVE
+                    for order in power.adjust:
                         order_type, order_args = self.parse_adjustment_order(order, power)
-                    xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
+
+                # Alterations
+                if alterations:
+                    for (order, weight) in alterations[i]:
+                        order = order.replace('\\', '')
+                        order_type, order_args = self.parse_regular_order(order, power)
+                        if not order_type:
+                            order_type, order_args = self.parse_adjustment_order(order, power)
+                        if order_type:
+                            xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
+
+            except ZeroDivisionError:
+                pass
 
         # Removing abbrev and mouse layer
         svg_node = xml_map.getElementsByTagName('svg')[0]
@@ -213,7 +223,7 @@ class CustomRenderer(Renderer):
         unit_loc = tokens[1]
 
         # Parsing based on order type
-        if not tokens or len(tokens) < 3:
+        if not tokens or len(tokens) < 3 or unit_loc not in TERRITORIES:
             return None, None
 
         elif tokens[2] == 'H':
@@ -221,10 +231,14 @@ class CustomRenderer(Renderer):
 
         elif tokens[2] == '-':
             dest_loc = tokens[-1] if tokens[-1] != 'VIA' else tokens[-2]
+            if dest_loc not in TERRITORIES:
+                return None, None
             return OrderEnum.MOVE_ORDER, [unit_loc, dest_loc, power.name]
 
         elif tokens[2] == 'S':
             dest_loc = tokens[-1]
+            if dest_loc not in TERRITORIES:
+                return None, None
             if '-' in tokens:
                 src_loc = tokens[4] if tokens[3] == 'A' or tokens[3] == 'F' else tokens[3]
                 return OrderEnum.SUPPORT_MOVE_ORDER, [unit_loc, src_loc, dest_loc, power.name]
@@ -234,10 +248,12 @@ class CustomRenderer(Renderer):
         elif tokens[2] == 'C':
             src_loc = tokens[4] if tokens[3] == 'A' or tokens[3] == 'F' else tokens[3]
             dest_loc = tokens[-1]
+            if src_loc not in TERRITORIES or dest_loc not in TERRITORIES:
+                return None, None
             if src_loc != dest_loc and '-' in tokens:
                 return OrderEnum.CONVOY_ORDER, [unit_loc, src_loc, dest_loc, power.name]
-        else:
-            return None, None
+
+        return None, None
 
     def parse_adjustment_order(self, order, power):
         tokens = order.split()
@@ -255,10 +271,11 @@ class CustomRenderer(Renderer):
         elif tokens[-2] == 'R':
             src_loc = tokens[1] if tokens[0] == 'A' or tokens[0] == 'F' else tokens[0]
             dest_loc = tokens[-1]
+            if src_loc not in TERRITORIES or dest_loc not in TERRITORIES:
+                return None, None
             return OrderEnum.MOVE_ORDER, [src_loc, dest_loc, power.name]
 
-        else:
-            return None, None
+        return None, None
 
     def custom_set_influence(self, xml_map, loc, power_name, has_supply_center=False):
         """ Sets the influence on the map
