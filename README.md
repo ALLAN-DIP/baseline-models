@@ -18,7 +18,7 @@ To make code imports cleaner across multiple directories, packages were used in 
 # Usage
 ## model_code/predict.py
 Renders predictions from the model on a test set
-Key word arguments:
+Keyword arguments:
 - -t:   The path to the jsonl files containing the test states of the model
 - -m:   The path to the model folder containing the model binaries
 - -o:   The path to the output folder for the rendered suggestions overlayed on the map
@@ -29,3 +29,5 @@ Key word arguments:
 
 ## visualisation_code/render_examples.py
 Renders example suggestions on states defined in "examples.py"
+Keyword arguments:
+- -o:   The path to the output folder for the rendered suggestions overlayed on the map

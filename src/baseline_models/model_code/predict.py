@@ -94,7 +94,7 @@ def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-t", "--test_path", type=str, default=os.path.join(parent_dir, "data", "test.jsonl"))
     argparser.add_argument("-m", "--model_path", type=str, default=os.path.join(parent_dir, "models", "example"))
-    argparser.add_argument("-o", "--output_path", type=str, default=os.path.join(parent_dir, "outputs"))
+    argparser.add_argument("-o", "--output_path", type=str, default=os.path.join(parent_dir, "output"))
     argparser.add_argument("-g", "--max_games", type=int, default=-1)
     argparser.add_argument("-p", "--max_phases", type=int, default=-1)
     argparser.add_argument("-u", "--max_units", type=int, default=-1)

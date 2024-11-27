@@ -5,12 +5,15 @@ from baseline_models.visualisation_code.examples import EXAMPLE_RENDERS
 import os
 from argparse import ArgumentParser
 
-DIR_PATH = os.path.join(os.getcwd(), "visualisation_code")
-DATA_PATH = os.path.join(DIR_PATH, "examples.jsonl")
-OUT_PATH = os.path.join(DIR_PATH, "output")
+PARENT_DIR = os.path.dirname(os.getcwd())
+OUT_PATH = os.path.join(PARENT_DIR, "output")
+# DATA_PATH = os.path.join(os.getcwd(), "visualisation_code", "examples.jsonl")
 
 
 def render_maps(data_dict=EXAMPLE_RENDERS, output_path=OUT_PATH):
+    if not os.path.isdir(output_path):
+        os.mkdir(output_path)
+
     for i, render_info in enumerate(data_dict):
         try:
             state = render_info["state"]
@@ -30,6 +33,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-o", "--output_path", type=str, default=OUT_PATH)
     args = parser.parse_args()
+
     render_maps(output_path=args.output_path)
 
 
