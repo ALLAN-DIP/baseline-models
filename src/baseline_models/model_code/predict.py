@@ -3,6 +3,7 @@ import pickle
 from time import time
 import json
 import numpy as np
+import argparse
 
 from baseline_models.model_code.preprocess import key_to_filename
 from baseline_models.model_code.preprocess import generate_attribute
@@ -22,6 +23,10 @@ def predict(model_path, state):
     units = get_units(state)
 
     for unit in units:
+        if season_phase[-1] == 'R' and unit[0] != '*':
+            continue
+
+        unit = unit.replace("*", "")
         key = unit + " " + season_phase
 
         file_path = os.path.join(model_path, key_to_filename(key))
@@ -56,9 +61,11 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
                 pred_probs = predict(model_path, state)
                 sorted_probs = dict()
 
-                # Taking the top three orders for each army
+                # Taking the top number of orders for each army
                 for k, (unit, orders) in enumerate(pred_probs.items()):
                     sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:min(max_orders, len(orders))]
+                    if state["name"] == "F1906R":
+                        print(sorted_probs)
 
                     # Scaling probabilities
                     scalar = sorted_probs[unit][0][1]
@@ -66,10 +73,8 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
                         for m in range(len(sorted_probs[unit])):
                             sorted_probs[unit][m] = (sorted_probs[unit][m][0], sorted_probs[unit][m][1] / scalar)
 
-                    if "/" in unit:
-                        unit = unit[:-3]
-                    file_name = f"output_{i}_{state["name"]}_{unit}.svg".replace(" ", "_")
-                    print(file_name)
+                    file_name = f"output_{i}_{state["name"]}_{unit.replace("/", "_")}.svg".replace(" ", "_")
+
                     render_from_prediction(state, sorted_probs, os.path.join(output_path, file_name))
                     sorted_probs.clear()
 
@@ -84,13 +89,48 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
 
 
 def main():
+    parent_dir = os.path.dirname(os.getcwd())
+
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("-t", "--test_path", type=str, default=os.path.join(parent_dir, "data", "test.jsonl"))
+    argparser.add_argument("-m", "--model_path", type=str, default=os.path.join(parent_dir, "models", "example"))
+    argparser.add_argument("-o", "--output_path", type=str, default=os.path.join(parent_dir, "outputs"))
+    argparser.add_argument("-mg", "--max_games", type=int, default=-1)
+    argparser.add_argument("-mp", "--max_phases", type=int, default=-1)
+    argparser.add_argument("-mu", "--max_units", type=int, default=-1)
+    argparser.add_argument("-mo", "--max_orders", type=int, default=6)
+
+    args = argparser.parse_args()
+    test_path = args.test_path
+    model_path = args.model_path
+    output_path = args.output_path
+    max_games = args.max_games
+    max_phases = args.max_phases
+    max_units = args.max_units
+    max_orders = args.max_orders
+
+    if not os.path.isdir(output_path):
+        os.mkdir(output_path)
+
+    """
+    Deprecated with argparse addition, but still useful as a reference
+
     data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "medium")
     test_path = os.path.join(data_path, "test.jsonl")
-    # model_path = os.path.join(data_path, "knn_models")
+    model_path = os.path.join(data_path, "knn_models")
     model_path = os.path.join("D:", os.sep, "Downloads", "lr_24102024", "lr_24102024")
     output_path = os.path.join(os.getcwd(), "output")
+    """
 
-    render_outputs(model_path, test_path, output_path, max_games=2, max_orders=6)
+    render_outputs(
+        model_path,
+        test_path,
+        output_path,
+        max_games=max_games,
+        max_phases=max_phases,
+        max_units=max_units,
+        max_orders=max_orders
+    )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from diplomacy.utils.equilateral_triangle import EquilateralTriangle
 from baseline_models.visualisation_code.utils import OrderEnum
 from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
-from baseline_models.model_code.constants import POWERS, TERRITORIES
+from baseline_models.model_code.constants import POWERS, INFLUENCES
 
 
 def render_from_prediction(state, predictions, output_path):
@@ -14,6 +14,12 @@ def render_from_prediction(state, predictions, output_path):
 
     alterations = list(list() for _ in range(len(POWERS)))
     for unit, orders in predictions.items():
+        # Deal with retreating case where the unit has an *
+        if phase[-1] == "R":
+            unit = f"*{unit}"
+            print(unit, state["units"])
+
+        # Find corresponding power
         for i, power in enumerate(POWERS):
             if power not in state["units"]:
                 continue
@@ -179,8 +185,11 @@ class CustomRenderer(Renderer):
                             order_type, order_args = self.parse_adjustment_order(order, power)
                         if order_type:
                             xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
+                        else:
+                            print("There was an issue relating a specified unit to the map")
 
             except ZeroDivisionError:
+                print("A unit attempted an illegal order involving supporting/moving to itself")
                 pass
 
         # Removing abbrev and mouse layer
@@ -223,7 +232,7 @@ class CustomRenderer(Renderer):
         unit_loc = tokens[1]
 
         # Parsing based on order type
-        if not tokens or len(tokens) < 3 or unit_loc not in TERRITORIES:
+        if not tokens or len(tokens) < 3 or unit_loc not in INFLUENCES:
             return None, None
 
         elif tokens[2] == 'H':
@@ -231,13 +240,13 @@ class CustomRenderer(Renderer):
 
         elif tokens[2] == '-':
             dest_loc = tokens[-1] if tokens[-1] != 'VIA' else tokens[-2]
-            if dest_loc not in TERRITORIES:
+            if dest_loc not in INFLUENCES:
                 return None, None
             return OrderEnum.MOVE_ORDER, [unit_loc, dest_loc, power.name]
 
         elif tokens[2] == 'S':
             dest_loc = tokens[-1]
-            if dest_loc not in TERRITORIES:
+            if dest_loc not in INFLUENCES:
                 return None, None
             if '-' in tokens:
                 src_loc = tokens[4] if tokens[3] == 'A' or tokens[3] == 'F' else tokens[3]
@@ -248,7 +257,7 @@ class CustomRenderer(Renderer):
         elif tokens[2] == 'C':
             src_loc = tokens[4] if tokens[3] == 'A' or tokens[3] == 'F' else tokens[3]
             dest_loc = tokens[-1]
-            if src_loc not in TERRITORIES or dest_loc not in TERRITORIES:
+            if src_loc not in INFLUENCES or dest_loc not in INFLUENCES:
                 return None, None
             if src_loc != dest_loc and '-' in tokens:
                 return OrderEnum.CONVOY_ORDER, [unit_loc, src_loc, dest_loc, power.name]
@@ -271,7 +280,7 @@ class CustomRenderer(Renderer):
         elif tokens[-2] == 'R':
             src_loc = tokens[1] if tokens[0] == 'A' or tokens[0] == 'F' else tokens[0]
             dest_loc = tokens[-1]
-            if src_loc not in TERRITORIES or dest_loc not in TERRITORIES:
+            if src_loc not in INFLUENCES or dest_loc not in INFLUENCES:
                 return None, None
             return OrderEnum.MOVE_ORDER, [src_loc, dest_loc, power.name]
 
@@ -404,6 +413,7 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the move order
             :return: Nothing
         """
+
         is_dislodged = self.game.get_current_phase()[-1] == 'R'
         src_loc_x, src_loc_y = self._get_unit_center(src_loc, is_dislodged)
         dest_loc_x, dest_loc_y = self._get_unit_center(dest_loc, is_dislodged)
