@@ -3,6 +3,10 @@ from baseline_models.model_code.constants import *
 import json
 import re
 
+def get_unit_from_order(order):
+    order_terms = order.split(" ")
+    return " ".join(order_terms[0:2])
+
 def generate_key(unit, season_phase):
     key = unit + " " + season_phase
     return re.sub(r"[\\/ \s]", "_", key)
@@ -19,6 +23,8 @@ def entry_to_vectors(phase):
     state = phase["state"]
     orders = phase["orders"]
     results = phase["results"]
+    builds = state["builds"]
+    units = state["units"]
 
     attributes = list()
     classes = list()
@@ -27,28 +33,67 @@ def entry_to_vectors(phase):
     season_phase = get_season_phase(state["name"])
     attribute = generate_attribute(state)
 
-    for _, order_list in orders.items():
-        if order_list is not None:
-            for order in order_list:
-                # parse unit from order
-                order_terms = order.split(" ")
-                unit = " ".join(order_terms[0:2])
-                if unit in results:
-                    # skip illegal moves
-                    if "void" in results[unit]:
-                        #print("VOIDED: " + order) #tmp
-                        continue
-                key = generate_key(unit, season_phase)
+    if season_phase == "WA":
+        for power, build_dict in builds.items():
+            # check count
+            if build_dict["count"] == 0:
+                continue
+            elif build_dict["count"] > 0:
+                # build orders
+                homes = build_dict["homes"]
+                # for each home, record whether there is a build or no build
+                order_list = orders[power]
+                for home in homes:
+                    attributes.append(attribute)
+                    if order_list is not None:
+                        if "A " + home + " B" in order_list:
+                            classes.append("A " + home + " B")
+                        elif "F " + home + " B" in order_list:
+                            classes.append("F " + home + " B")
+                        else:
+                            classes.append(CLASSNOORDER)
+                    else:
+                        classes.append(CLASSNOORDER)
+                    key = generate_key(home, season_phase)
+                    keys.append(key)
+                    
+            else:
+                # disband orders
+                unit_list = units[power]
+                order_list = orders[power]
+                # for each unit, record whether it is disbanded or not
+                for unit in unit_list:
+                    attributes.append(attribute)
+                    if order_list is not None:
+                        if unit + " D" in order_list:
+                            classes.append(unit + " D")
+                        else:
+                            classes.append(CLASSNOORDER)
+                    else:
+                        classes.append(CLASSNOORDER)
+                    key = generate_key(unit, season_phase)
+                    keys.append(key)
 
-                attributes.append(attribute)
-                classes.append(order)
-                keys.append(key)
+    else:
+        for _, order_list in orders.items():
+            if order_list is not None:
+                for order in order_list:
+                    # parse unit from order
+                    unit = get_unit_from_order(order)
+                    if unit in results:
+                        # skip illegal moves
+                        if "void" in results[unit]:
+                            continue
+                    key = generate_key(unit, season_phase)
+
+                    attributes.append(attribute)
+                    classes.append(order)
+                    keys.append(key)
 
     return attributes, classes, keys
 
 
 def generate_attribute(state, name_data=None, units_data=None, centers_data=None, homes_data=None, influences_data=None):
-    # FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
         'SM': 0,
         'FM': 1,
