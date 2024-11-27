@@ -95,10 +95,10 @@ def main():
     argparser.add_argument("-t", "--test_path", type=str, default=os.path.join(parent_dir, "data", "test.jsonl"))
     argparser.add_argument("-m", "--model_path", type=str, default=os.path.join(parent_dir, "models", "example"))
     argparser.add_argument("-o", "--output_path", type=str, default=os.path.join(parent_dir, "outputs"))
-    argparser.add_argument("-mg", "--max_games", type=int, default=-1)
-    argparser.add_argument("-mp", "--max_phases", type=int, default=-1)
-    argparser.add_argument("-mu", "--max_units", type=int, default=-1)
-    argparser.add_argument("-mo", "--max_orders", type=int, default=6)
+    argparser.add_argument("-g", "--max_games", type=int, default=-1)
+    argparser.add_argument("-p", "--max_phases", type=int, default=-1)
+    argparser.add_argument("-u", "--max_units", type=int, default=-1)
+    argparser.add_argument("-s", "--max_suggestions", type=int, default=6)
 
     args = argparser.parse_args()
     test_path = args.test_path
@@ -107,7 +107,7 @@ def main():
     max_games = args.max_games
     max_phases = args.max_phases
     max_units = args.max_units
-    max_orders = args.max_orders
+    max_orders = args.max_suggestions
 
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
