@@ -3,6 +3,9 @@ from baseline_models.model_code.constants import *
 import json
 import re
 
+def generate_key(unit, season_phase):
+    key = unit + " " + season_phase
+    return re.sub(r"[\\/ \s]", "_", key)
 
 def key_to_filename(key):
     return re.sub(r"[\\/ \s]", "_", key)
@@ -15,12 +18,13 @@ def key_to_filename(key):
 def entry_to_vectors(phase):
     state = phase["state"]
     orders = phase["orders"]
+    results = phase["results"]
 
     attributes = list()
     classes = list()
     keys = list()
 
-    season_phase = get_season_phase(state)
+    season_phase = get_season_phase(state["name"])
     attribute = generate_attribute(state)
 
     for _, order_list in orders.items():
@@ -29,7 +33,12 @@ def entry_to_vectors(phase):
                 # parse unit from order
                 order_terms = order.split(" ")
                 unit = " ".join(order_terms[0:2])
-                key = unit + " " + season_phase
+                if unit in results:
+                    # skip illegal moves
+                    if "void" in results[unit]:
+                        #print("VOIDED: " + order) #tmp
+                        continue
+                key = generate_key(unit, season_phase)
 
                 attributes.append(attribute)
                 classes.append(order)
@@ -38,7 +47,7 @@ def entry_to_vectors(phase):
     return attributes, classes, keys
 
 
-def generate_attribute(state):
+def generate_attribute(state, name_data=None, units_data=None, centers_data=None, homes_data=None, influences_data=None):
     # FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
         'SM': 0,
@@ -49,10 +58,13 @@ def generate_attribute(state):
         'CD': 5
     }
 
-    units_data = state["units"]             # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
-    centers_data = state["centers"]         # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
-    homes_data = state["homes"]             # dict of starting territory of each power?
-    influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
+    # If the entire phase is available in dipnet format, pass phase directly in.
+    if state:
+        name_data = state["name"]               # string of state name e.g. S1901M
+        units_data = state["units"]             # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
+        centers_data = state["centers"]         # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
+        homes_data = state["homes"]             # dict of starting territory of each power?
+        influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
     n_powers = len(POWERS)
 
     phase_atr = np.zeros([len(phases)], dtype=bool)
@@ -61,7 +73,10 @@ def generate_attribute(state):
     homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
     influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
 
-    season_phase = get_season_phase(state)
+    if state:
+        season_phase = get_season_phase(name_data)
+    else:
+        season_phase = get_season_phase(name_data, False)
     phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
@@ -97,9 +112,11 @@ def generate_attribute(state):
     return attribute
 
 
-def get_season_phase(state):
-    phase_data = state["name"]
-    return phase_data[0] + phase_data[-1]
+def get_season_phase(name_data, abbr = True):
+    if abbr:
+        return name_data[0] + name_data[-1]
+    split = name_data.split()
+    return split[0][0] + split[2][0]
 
 
 def get_units(state):
@@ -123,3 +140,22 @@ def generate_x_y(groups, src):
                     groups[key] = (list(), list())
                 groups[key][0].append(attribute)
                 groups[key][1].append(order)
+
+def get_messages(state):
+    messages = state["messages"]
+    message_json = json.dumps(messages)
+    return message_json
+
+def generate_attribute_message_pair(src):
+    result = list()
+    for line in src:
+        game = json.loads(line)
+        for phase in game["phases"]:
+            state = phase["state"]
+            attribute = generate_attribute(state)
+            message_json = get_messages(phase)
+            result.append((attribute, message_json,))
+    return result
+
+
+        

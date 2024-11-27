@@ -3,7 +3,7 @@ import pickle
 from time import time
 import json
 import numpy as np
-from baseline_models.model_code.preprocess import key_to_filename
+from baseline_models.model_code.preprocess import generate_key
 from baseline_models.model_code.preprocess import generate_attribute
 from baseline_models.model_code.preprocess import get_season_phase
 from baseline_models.model_code.preprocess import get_units
@@ -21,23 +21,22 @@ def predict(model_path, state):
     game = Game(map_name = state["map"])
     #print(game.get_map_power_names())
     game.set_state(state)
+    valid_orders = game.get_all_possible_orders()
 
     pred_orders = dict()
     attribute = generate_attribute(state)
-    season_phase = get_season_phase(state)
+    season_phase = get_season_phase(state["name"])
     units = get_units(state)
 
     for unit in units:
-        key = unit + " " + season_phase
+        key = generate_key(unit, season_phase)
 
-        file_path = os.path.join(model_path, key_to_filename(key))
+        file_path = os.path.join(model_path, key)
         if os.path.exists(file_path):
             with open(file_path, 'rb') as model_file:
                 model = pickle.load(model_file)
                 attribute = np.reshape(attribute, (1, -1))
                 pred_proba = model.predict_proba(attribute)
-
-                valid_orders = game.get_all_possible_orders()
 
                 pred_order_proba = []
                 for order, prob in zip(model.classes_, pred_proba[0]):
