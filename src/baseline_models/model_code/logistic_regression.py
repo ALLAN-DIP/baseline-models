@@ -22,7 +22,7 @@ def run_lr(train_path, test_path, model_path):
 
         model = LogisticRegression(random_state=1, solver='lbfgs', C=0.01)
         model.fit(data[0], data[1])
-
+        
         if model_path is not None:
             with open(os.path.join(model_path, unit), 'wb') as model_file:
                 pickle.dump(model, model_file)

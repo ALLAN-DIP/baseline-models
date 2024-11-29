@@ -47,8 +47,8 @@ def predict(model_path: str, state: dict) -> dict:
         # Current model implementation combines retreats and regular orders into one model
         unit = unit.replace("*", "")
         key = generate_key(unit, season_phase)
-
         file_path = os.path.join(model_path, key)
+        
         if os.path.exists(file_path):
             with open(file_path, 'rb') as model_file:
                 model = pickle.load(model_file)

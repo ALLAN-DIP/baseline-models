@@ -4,6 +4,13 @@ import json
 import re
 from typing import TextIO
 
+def get_unit_from_order(order):
+    order_terms = order.split(" ")
+    return " ".join(order_terms[0:2])
+
+def generate_key(unit, season_phase):
+    key = unit + " " + season_phase
+    return re.sub(r"[\\/ \s]", "_", key)
 
 def get_unit_from_order(order: str) -> str:
     order_terms = order.split(" ")
@@ -52,12 +59,6 @@ def entry_to_vectors(phase: dict) -> tuple:
     season_phase = get_season_phase(state["name"])
     attribute = generate_attribute(state)
 
-    for _, order_list in orders.items():
-        if order_list is not None:
-            for order in order_list:
-                order_terms = order.split(" ")
-                unit = " ".join(order_terms[0:2])
-                key = unit + " " + season_phase
     if season_phase == "WA":
         for power, build_dict in builds.items():
             # check count
@@ -198,6 +199,7 @@ def get_season_phase(name_data: str, abbr=True) -> str:
     """
     Gets the current season phase type (for example "FM" is fall movement)
     """
+    
     if abbr:
         return name_data[0] + name_data[-1]
     split = name_data.split()
