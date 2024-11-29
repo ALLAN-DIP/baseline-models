@@ -4,8 +4,9 @@ from time import time
 import json
 import numpy as np
 import argparse
+from diplomacy.engine.game import Game
 
-from baseline_models.model_code.preprocess import key_to_filename
+from baseline_models.model_code.preprocess import generate_key
 from baseline_models.model_code.preprocess import generate_attribute
 from baseline_models.model_code.preprocess import get_season_phase
 from baseline_models.model_code.preprocess import get_units
@@ -27,11 +28,15 @@ def predict(model_path: str, state: dict) -> dict:
         (dict): A dictionary mapping units to a list of tuples for possible orders
         and their corresponding probabilities
     """
+    game = Game(map_name=state["map"])
+    # print(game.get_map_power_names())
+    game.set_state(state)
+    # valid_orders = game.get_all_possible_orders()
 
     # Encode state as model input
     pred_orders = dict()
     attribute = generate_attribute(state)
-    season_phase = get_season_phase(state)
+    season_phase = get_season_phase(state["name"])
     units = get_units(state)
 
     for unit in units:
@@ -41,10 +46,9 @@ def predict(model_path: str, state: dict) -> dict:
 
         # Current model implementation combines retreats and regular orders into one model
         unit = unit.replace("*", "")
-        key = unit + " " + season_phase
+        key = generate_key(unit, season_phase)
 
-        # Perform predictions
-        file_path = os.path.join(model_path, key_to_filename(key))
+        file_path = os.path.join(model_path, key)
         if os.path.exists(file_path):
             with open(file_path, 'rb') as model_file:
                 model = pickle.load(model_file)

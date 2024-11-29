@@ -5,6 +5,16 @@ import re
 from typing import TextIO
 
 
+def get_unit_from_order(order: str) -> str:
+    order_terms = order.split(" ")
+    return " ".join(order_terms[0:2])
+
+
+def generate_key(unit: str, season_phase: str) -> str:
+    key = unit + " " + season_phase
+    return re.sub(r"[\\/ \s]", "_", key)
+
+
 def key_to_filename(key: str) -> str:
     """
     Converts the unit's key to a filename friendly version
@@ -31,12 +41,15 @@ def entry_to_vectors(phase: dict) -> tuple:
     """
     state = phase["state"]
     orders = phase["orders"]
+    results = phase["results"]
+    builds = state["builds"]
+    units = state["units"]
 
     attributes = list()
     classes = list()
     keys = list()
 
-    season_phase = get_season_phase(state)
+    season_phase = get_season_phase(state["name"])
     attribute = generate_attribute(state)
 
     for _, order_list in orders.items():
@@ -45,15 +58,67 @@ def entry_to_vectors(phase: dict) -> tuple:
                 order_terms = order.split(" ")
                 unit = " ".join(order_terms[0:2])
                 key = unit + " " + season_phase
+    if season_phase == "WA":
+        for power, build_dict in builds.items():
+            # check count
+            if build_dict["count"] == 0:
+                continue
+            elif build_dict["count"] > 0:
+                # build orders
+                homes = build_dict["homes"]
+                # for each home, record whether there is a build or no build
+                order_list = orders[power]
+                for home in homes:
+                    attributes.append(attribute)
+                    if order_list is not None:
+                        if "A " + home + " B" in order_list:
+                            classes.append("A " + home + " B")
+                        elif "F " + home + " B" in order_list:
+                            classes.append("F " + home + " B")
+                        else:
+                            classes.append(CLASSNOORDER)
+                    else:
+                        classes.append(CLASSNOORDER)
+                    key = generate_key(home, season_phase)
+                    keys.append(key)
 
-                attributes.append(attribute)
-                classes.append(order)
-                keys.append(key)
+            else:
+                # disband orders
+                unit_list = units[power]
+                order_list = orders[power]
+                # for each unit, record whether it is disbanded or not
+                for unit in unit_list:
+                    attributes.append(attribute)
+                    if order_list is not None:
+                        if unit + " D" in order_list:
+                            classes.append(unit + " D")
+                        else:
+                            classes.append(CLASSNOORDER)
+                    else:
+                        classes.append(CLASSNOORDER)
+                    key = generate_key(unit, season_phase)
+                    keys.append(key)
+
+    else:
+        for _, order_list in orders.items():
+            if order_list is not None:
+                for order in order_list:
+                    # parse unit from order
+                    unit = get_unit_from_order(order)
+                    if unit in results:
+                        # skip illegal moves
+                        if "void" in results[unit]:
+                            continue
+                    key = generate_key(unit, season_phase)
+
+                    attributes.append(attribute)
+                    classes.append(order)
+                    keys.append(key)
 
     return attributes, classes, keys
 
 
-def generate_attribute(state: dict) -> np.ndarray:
+def generate_attribute(state: dict, name_data=None, units_data=None, centers_data=None, homes_data=None, influences_data=None) -> np.ndarray:
     """
     Encodes the power, centers, homes and influence components of the states into a one-hot vector
 
@@ -73,10 +138,13 @@ def generate_attribute(state: dict) -> np.ndarray:
         'CD': 5
     }
 
-    units_data = state["units"]             # dict of powers to their units e.g. "AUSTRIA": ["A SER", "A TYR", "F ADR"]
-    centers_data = state["centers"]         # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD", "TRI", "VIE", "SER"]
-    homes_data = state["homes"]             # dict of starting territory of each power?
-    influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
+    # If the entire phase is available in dipnet format, pass phase directly in.
+    if state:
+        name_data = state["name"]               # string of state name e.g. S1901M
+        units_data = state["units"]             # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
+        centers_data = state["centers"]         # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
+        homes_data = state["homes"]             # dict of starting territory of each power?
+        influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
     n_powers = len(POWERS)
 
     # Setting encoding sizes for each field
@@ -86,7 +154,10 @@ def generate_attribute(state: dict) -> np.ndarray:
     homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
     influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
 
-    season_phase = get_season_phase(state)
+    if state:
+        season_phase = get_season_phase(name_data)
+    else:
+        season_phase = get_season_phase(name_data, False)
     phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
@@ -123,12 +194,14 @@ def generate_attribute(state: dict) -> np.ndarray:
     return attribute
 
 
-def get_season_phase(state: dict) -> str:
+def get_season_phase(name_data: str, abbr=True) -> str:
     """
     Gets the current season phase type (for example "FM" is fall movement)
     """
-    phase_data = state["name"]
-    return phase_data[0] + phase_data[-1]
+    if abbr:
+        return name_data[0] + name_data[-1]
+    split = name_data.split()
+    return split[0][0] + split[2][0]
 
 
 def get_units(state: dict) -> list:
@@ -158,3 +231,21 @@ def generate_x_y(groups: dict, src: TextIO) -> None:
                     groups[key] = (list(), list())
                 groups[key][0].append(attribute)
                 groups[key][1].append(order)
+
+
+def get_messages(state):
+    messages = state["messages"]
+    message_json = json.dumps(messages)
+    return message_json
+
+
+def generate_attribute_message_pair(src):
+    result = list()
+    for line in src:
+        game = json.loads(line)
+        for phase in game["phases"]:
+            state = phase["state"]
+            attribute = generate_attribute(state)
+            message_json = get_messages(phase)
+            result.append((attribute, message_json,))
+    return result

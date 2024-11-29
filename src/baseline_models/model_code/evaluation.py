@@ -1,6 +1,6 @@
 import os
 import pickle
-from baseline_models.model_code.preprocess import key_to_filename
+from baseline_models.model_code.preprocess import decode_class
 from baseline_models.model_code.constants import *
 
 
@@ -33,7 +33,7 @@ class Results():
             class_total = 0
             true_orders = data[1]
 
-            file_path = os.path.join(self.model_path, key_to_filename(model_type))
+            file_path = os.path.join(self.model_path, model_type)
             if os.path.exists(file_path):
                 pred_orders = []
                 with open(file_path, 'rb') as model_file:
