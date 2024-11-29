@@ -32,7 +32,6 @@ def render_from_prediction(state: dict, predictions: dict, output_path: str) -> 
         # Deal with retreating case where the unit has an *
         if phase[-1] == "R":
             unit = f"*{unit}"
-            print(unit, state["units"])
 
         # Find the corresponding power for the order
         for i, power in enumerate(POWERS):
