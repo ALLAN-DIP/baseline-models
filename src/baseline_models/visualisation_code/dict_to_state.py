@@ -23,6 +23,8 @@ def dict_to_state(state_dict: dict) -> tuple[Game, dict]:
             power.influence = clean_input(state_dict["influence"][name])
         if name in state_dict["homes"].keys():
             power.homes = clean_input(state_dict["homes"][name])
+        if name in state_dict["retreats"].keys():
+            power.retreats = state_dict["retreats"][name]
     phase = state_dict["name"]
 
     return game, phase

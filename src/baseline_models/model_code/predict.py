@@ -48,7 +48,7 @@ def predict(model_path: str, state: dict) -> dict:
         unit = unit.replace("*", "")
         key = generate_key(unit, season_phase)
         file_path = os.path.join(model_path, key)
-        
+
         if os.path.exists(file_path):
             with open(file_path, 'rb') as model_file:
                 model = pickle.load(model_file)
@@ -84,6 +84,7 @@ def render_outputs(model_path: str, test_path: str, output_path: str, max_games=
         # Each line in the test file is a json for a game
         for i, line in enumerate(test):
             game = json.loads(line)
+            print(f"Currently game id: {i}")
 
             # Iterate through each phase
             for j, phase in enumerate(game["phases"]):
