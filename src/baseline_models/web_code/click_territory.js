@@ -1,4 +1,5 @@
 function updateMap(newMapPath){
+    // Updates the map
     let oldMap = document.getElementById('map-object');
     oldMap.data = newMapPath;
 }
@@ -27,6 +28,7 @@ function unitUpdate(unitTag) {
     })
     if (unit) {
         let symbol = (unit.getAttribute('xlink:href') == '#Fleet') ? 'F' : 'A';
+        // State must be pre-generated
         let fileName = `../output/output_0_${text.textContent}_${symbol}${unitName}.svg`;
         updateMap(fileName)
         console.log('Updated svg to', fileName);
@@ -41,6 +43,7 @@ document.getElementById('map-object').addEventListener('load', function() {
 
     let territories = svgMap.querySelectorAll('path');
     
+    // Create event listeners for each territory in case clicked
     if (territories.length > 0) {
         territories.forEach(territory => {
             territory.addEventListener('click', function(event) {

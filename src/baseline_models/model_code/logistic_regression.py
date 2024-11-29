@@ -4,7 +4,6 @@ import os
 import pickle
 from baseline_models.model_code.preprocess import generate_x_y
 from baseline_models.model_code.preprocess import key_to_filename
-from baseline_models.model_code.constants import *
 from baseline_models.model_code.evaluation import evaluate_model
 
 
@@ -17,7 +16,7 @@ def run_lr(train_path, test_path, model_path):
 
     print("Training models")
     for unit, data in train_dict.items():
-        #print(f"Sample size for {unit}: {len(data[0])}")
+        # print(f"Sample size for {unit}: {len(data[0])}")
 
         # skip if there is only 1 class
         if len(set(data[1])) <= 1:
@@ -26,7 +25,7 @@ def run_lr(train_path, test_path, model_path):
         model = LogisticRegression(random_state=1, solver='lbfgs', C=0.01)
         model.fit(data[0], data[1])
 
-        if model_path != None:
+        if model_path is not None:
             with open(os.path.join(model_path, key_to_filename(unit)), 'wb') as model_file:
                 pickle.dump(model, model_file)
 
@@ -47,6 +46,7 @@ def main():
     model_path = os.path.join(data_path, "lr_models")
 
     run_lr(train_path, test_path, model_path)
+
 
 if __name__ == "__main__":
     start_time = time()

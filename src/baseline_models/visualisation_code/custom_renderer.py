@@ -1,5 +1,7 @@
 from xml.dom import minidom
 
+from diplomacy.engine.game import Game
+from diplomacy.engine.power import Power
 from diplomacy.engine.renderer import Renderer, _attr, ARMY, FLEET
 from diplomacy.utils.equilateral_triangle import EquilateralTriangle
 from baseline_models.visualisation_code.utils import OrderEnum
@@ -8,18 +10,31 @@ from baseline_models.visualisation_code.dict_to_state import dict_to_state
 from baseline_models.model_code.constants import POWERS, INFLUENCES
 
 
-def render_from_prediction(state, predictions, output_path):
+def render_from_prediction(state: dict, predictions: dict, output_path: str) -> None:
+    """
+    Renders the predicted orders on the current game map to an output file
+
+    Args:
+        state (dict): The current game state
+        predictions (dict): A dictionary mapping units to a list of tuples for possible orders
+        and their corresponding weightings
+        output_path (str): The output filename for the rendered .svg image
+    """
+
+    # Create a game and renderer
     game, phase = dict_to_state(state)
     renderer = CustomRenderer(game, phase=phase)
 
+    # Assemble the list of alterations from the predictions
     alterations = list(list() for _ in range(len(POWERS)))
     for unit, orders in predictions.items():
+
         # Deal with retreating case where the unit has an *
         if phase[-1] == "R":
             unit = f"*{unit}"
             print(unit, state["units"])
 
-        # Find corresponding power
+        # Find the corresponding power for the order
         for i, power in enumerate(POWERS):
             if power not in state["units"]:
                 continue
@@ -28,18 +43,27 @@ def render_from_prediction(state, predictions, output_path):
                     alterations[i].append(order)
                 break
 
+    # Perform the rendering
     renderer.custom_render(output_path=output_path, alterations=alterations)
 
 
 class CustomRenderer(Renderer):
+    """
+    THIS CLASS EXTENDS FROM AN EXISTING REPOSITORY: https://github.com/SHADE-AI/diplomacy
 
-    def __init__(self, game, svg_path=None, phase=None):
+    CustomRenderer behaves similarly to the existing Renderer class but also renders "alterations"
+    on the maps. These alterations are suggested orders with provided weightings. These weighting
+    determine the opacity and size of the suggestions that appear on the map.
+    """
+
+    def __init__(self, game: Game, svg_path=None, phase=None) -> None:
         super().__init__(game, svg_path)
         self.phase = phase
         self.background = None
         self.background_inserted = False
         self.shadow_scalar = 1.5
 
+        # The territory colours have been desaturated for increased constrast with the orders
         self.opacities = {
             "austria": 0.5,
             "england": 0.25,
@@ -50,6 +74,7 @@ class CustomRenderer(Renderer):
             "turkey": 0.25
         }
 
+        # Cleaning up order structure of existing code
         self.order_dict = {
             OrderEnum.NO_ORDER: None,
             OrderEnum.HOLD_ORDER: self._issue_hold_order,
@@ -74,14 +99,24 @@ class CustomRenderer(Renderer):
             OrderEnum.DISBAND_ORDER: self.custom_issue_disband_order
         }
 
-    def apply_weight_opacity(g_node, weight):
+    def apply_weight_opacity(g_node: minidom.Element, weight: float) -> None:
+        """
+        Sets the opacity of a node (such as an arrow or shape)
+        """
         g_node.setAttribute('opacity', str(weight))
 
-    def scale_weight(weight):
+    def scale_weight(weight: float) -> float:
+        """
+        Scales a weighting using a custom function (for opacity and size)
+        """
         return 1.5 - (1 - weight) * 3 / 4
 
     # Adapted from the renderer method of the Renderer class
-    def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None):
+    def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None) -> str | None:
+        """
+        Saves and returns a map with the units, orders and alterations rendered
+        """
+
         self.background_inserted = False
         if output_format not in ['svg']:
             raise ValueError('Only "svg" format is current supported.')
@@ -91,7 +126,7 @@ class CustomRenderer(Renderer):
         # Parsing XML
         xml_map = minidom.parseString(self.xml_map)
 
-        # Resetting transparencies for opacity rendering
+        # IMPORTANT ADDITION: Resetting transparencies and stroke widths in classes
         style_elements = xml_map.getElementsByTagName('style')
         for style in style_elements:
             style_contents = style.firstChild.nodeValue
@@ -104,6 +139,7 @@ class CustomRenderer(Renderer):
                 style_contents = style_contents.replace('stroke-width:6', '').strip()
             style.firstChild.nodeValue = style_contents
 
+        # IMPORTANT ADDITION: Resetting transparencies and stroke widths in custom symbols
         altered_symbols = ["ConvoyTriangle", "SupportHoldUnit"]
         for symbol in altered_symbols:
             symbol_element = None
@@ -117,7 +153,7 @@ class CustomRenderer(Renderer):
                 if polygon.hasAttribute('opacity'):
                     polygon.removeAttribute('opacity')
 
-        # Setting phase and note
+        # Setting phase and note (from original code)
         nb_centers = [(power.name[:3], len(power.centers))
                       for power in self.game.powers.values()
                       if not power.is_eliminated()]
@@ -132,7 +168,7 @@ class CustomRenderer(Renderer):
         self.background = xml_map.createElement('g')
         self.background.setAttribute('id', 'back')
 
-        # Adding units and influence
+        # Adding units and influences
         for i, power in enumerate(self.game.powers.values()):
             """
             Try except block is for catching errors to do with invalid inputs that break rendering
@@ -150,7 +186,7 @@ class CustomRenderer(Renderer):
                 for loc in power.influence:
                     xml_map = self.custom_set_influence(xml_map, loc, power.name, has_supply_center=False)
 
-                # Orders
+                # Rendering orders
                 if incl_orders:
 
                     # Regular orders (Normalized)
@@ -176,7 +212,7 @@ class CustomRenderer(Renderer):
                     for order in power.adjust:
                         order_type, order_args = self.parse_adjustment_order(order, power)
 
-                # Alterations
+                # Rendering alterations
                 if alterations:
                     for (order, weight) in alterations[i]:
                         order = order.replace('\\', '')
@@ -211,27 +247,45 @@ class CustomRenderer(Renderer):
                 output_file.write(rendered_image)
 
         # Returning
+        print(type(rendered_image))
         return rendered_image
 
-    def display_order(self, order_type, order_args, xml_map):
+    def display_order(self, order_type: OrderEnum, order_args: list, xml_map: minidom.Document) -> minidom.Document:
+        """
+        Returns the rendering function that corresponds to the order type
+        """
         if order_type is None:
             return xml_map
         else:
             return self.order_dict[order_type](xml_map, *order_args)
 
-    def custom_display_order(self, order_type, order_args, xml_map, weight=1):
+    def custom_display_order(self, order_type: OrderEnum, order_args: list, xml_map: minidom.Document, weight=1) -> minidom.Document:
+        """
+        Returns the rendering function that corresponds to the order type
+        """
         if order_type is None:
             return xml_map
         else:
             return self.custom_order_dict[order_type](xml_map, *order_args, weight)
 
-    def parse_regular_order(self, order, power):
+    def parse_regular_order(self, order: str, power: Power) -> tuple[OrderEnum, list]:
+        """
+        Returns the order type and corresponding order arguments from a movement order
+
+        Args:
+            order (str): The order string
+            power (Power): The power making the order
+        Returns:
+            A tuple containing:
+                (OrderEnum): The order type
+                (list): A list of args corresponding to the order type
+        """
 
         # Normalizing and splitting in tokens
         tokens = self._norm_order(order)
         unit_loc = tokens[1]
 
-        # Parsing based on order type
+        # Parsing based on order type (adapted from existing code)
         if not tokens or len(tokens) < 3 or unit_loc not in INFLUENCES:
             return None, None
 
@@ -264,8 +318,22 @@ class CustomRenderer(Renderer):
 
         return None, None
 
-    def parse_adjustment_order(self, order, power):
+    def parse_adjustment_order(self, order: str, power: Power) -> tuple[OrderEnum, list]:
+        """
+        Returns the order type and corresponding order arguments from an adjustment order
+
+        Args:
+            order (str): The order string
+            power (Power): The power making the order
+        Returns:
+            A tuple containing:
+                (OrderEnum): The order type
+                (list): A list of args corresponding to the order type
+        """
+        # Splitting in tokens
         tokens = order.split()
+
+        # Parsing based on order type (adapted from existing code)
         if not tokens or tokens[0] == 'VOID' or tokens[-1] == 'WAIVE':
             return None, None
 
@@ -285,6 +353,12 @@ class CustomRenderer(Renderer):
             return OrderEnum.MOVE_ORDER, [src_loc, dest_loc, power.name]
 
         return None, None
+
+    """
+    All code below this point is largely based on code from the existing repository
+    The docstrings, comments and function sigantures featured here were all from the existing code base
+    The main additions were altering scaling and opacity for each order type
+    """
 
     def custom_set_influence(self, xml_map, loc, power_name, has_supply_center=False):
         """ Sets the influence on the map

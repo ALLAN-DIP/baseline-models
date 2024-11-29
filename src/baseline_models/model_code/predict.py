@@ -16,19 +16,34 @@ from baseline_models.visualisation_code.custom_renderer import render_from_predi
 RENDER_RESULT = True
 
 
-def predict(model_path, state):
+def predict(model_path: str, state: dict) -> dict:
+    """
+    Returns the model's predicted orders from the current state
+
+    Args:
+        model_path (str): The absolute file path to the model
+        state (dict): The dictionary encoding of the current game state
+    Returns:
+        (dict): A dictionary mapping units to a list of tuples for possible orders
+        and their corresponding probabilities
+    """
+
+    # Encode state as model input
     pred_orders = dict()
     attribute = generate_attribute(state)
     season_phase = get_season_phase(state)
     units = get_units(state)
 
     for unit in units:
+        # Don't consider non-displaced units in a retreat phase
         if season_phase[-1] == 'R' and unit[0] != '*':
             continue
 
+        # Current model implementation combines retreats and regular orders into one model
         unit = unit.replace("*", "")
         key = unit + " " + season_phase
 
+        # Perform predictions
         file_path = os.path.join(model_path, key_to_filename(key))
         if os.path.exists(file_path):
             with open(file_path, 'rb') as model_file:
@@ -46,10 +61,27 @@ def predict(model_path, state):
     return pred_orders
 
 
-def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=-1, max_units=-1, max_orders=100):
+def render_outputs(model_path: str, test_path: str, output_path: str, max_games=-1, max_phases=-1, max_units=-1, max_orders=100) -> None:
+    """
+    Creates a catalogue of .svg images for a series of games
+
+    Args:
+        model_path (str): The absolute path to the model folder
+        test_path (str): The absolute path to the jsonl file containing the game states to render
+        output_path (str): The absolute path to the output folder for the renderings
+        max_games (int): The maximum number of games to render (-1 is until the end of the file)
+        max_phases (int): The maximum number of phases to render for any game (-1 is until the end of the game)
+        max_units (int): The maximum number of units to render orders for any game (-1 is all units)
+        max_orders (int): The maximum number of orders to render on the map (-1 is until the end of the game)
+    """
+
     with open(test_path, 'r') as test:
+
+        # Each line in the test file is a json for a game
         for i, line in enumerate(test):
             game = json.loads(line)
+
+            # Iterate through each phase
             for j, phase in enumerate(game["phases"]):
                 state = phase["state"]
                 name = state["name"]
@@ -58,23 +90,22 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
                     continue
                 print(f"Current state: {name}")
 
+                # Predict orders from the current state
                 pred_probs = predict(model_path, state)
                 sorted_probs = dict()
 
                 # Taking the top number of orders for each army
                 for k, (unit, orders) in enumerate(pred_probs.items()):
                     sorted_probs[unit] = sorted(orders, key=lambda x: x[1], reverse=True)[:min(max_orders, len(orders))]
-                    if state["name"] == "F1906R":
-                        print(sorted_probs)
 
-                    # Scaling probabilities
+                    # Linearly scaling the probabilities
                     scalar = sorted_probs[unit][0][1]
                     if scalar > 0:
                         for m in range(len(sorted_probs[unit])):
                             sorted_probs[unit][m] = (sorted_probs[unit][m][0], sorted_probs[unit][m][1] / scalar)
 
+                    # Rendering the order suggestions and saving as a file.
                     file_name = f"output_{i}_{state["name"]}_{unit.replace("/", "_")}.svg".replace(" ", "_")
-
                     render_from_prediction(state, sorted_probs, os.path.join(output_path, file_name))
                     sorted_probs.clear()
 
@@ -91,6 +122,7 @@ def render_outputs(model_path, test_path, output_path, max_games=-1, max_phases=
 def main():
     parent_dir = os.path.dirname(os.getcwd())
 
+    # Keyword argument handling
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-t", "--test_path", type=str, default=os.path.join(parent_dir, "data", "test.jsonl"))
     argparser.add_argument("-m", "--model_path", type=str, default=os.path.join(parent_dir, "models", "example"))
@@ -122,6 +154,7 @@ def main():
     output_path = os.path.join(os.getcwd(), "output")
     """
 
+    # Performing the rendering
     render_outputs(
         model_path,
         test_path,

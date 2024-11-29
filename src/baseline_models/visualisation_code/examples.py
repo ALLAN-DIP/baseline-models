@@ -1,4 +1,5 @@
 # States taken directly from dipnet dataset
+# See render_examples.py to see how you can use your own examples
 
 EXAMPLE_RENDERS = [
     {

@@ -1,11 +1,17 @@
 from diplomacy.engine.game import Game
 
 
-def clean_input(input_list):
+def clean_input(input_list: list) -> list:
+    """
+    Removes backslashes from a list of strings
+    """
     return list(map(lambda x: x.replace('\\', ''), input_list))
 
 
-def dict_to_state(state_dict):
+def dict_to_state(state_dict: dict) -> tuple[Game, dict]:
+    """
+    Loads a game state into a Game object from a dictionary
+    """
     game = Game()
     for power in game.powers.values():
         name = power.name
