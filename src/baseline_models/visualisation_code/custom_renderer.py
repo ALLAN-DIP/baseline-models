@@ -247,7 +247,6 @@ class CustomRenderer(Renderer):
                 output_file.write(rendered_image)
 
         # Returning
-        print(type(rendered_image))
         return rendered_image
 
     def display_order(self, order_type: OrderEnum, order_args: list, xml_map: minidom.Document) -> minidom.Document:
