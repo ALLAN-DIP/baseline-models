@@ -1,19 +1,39 @@
 from xml.dom import minidom
 
+from diplomacy.engine.game import Game
+from diplomacy.engine.power import Power
 from diplomacy.engine.renderer import Renderer, _attr, ARMY, FLEET
 from diplomacy.utils.equilateral_triangle import EquilateralTriangle
 from baseline_models.visualisation_code.utils import OrderEnum
 from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
-from baseline_models.model_code.constants import POWERS
+from baseline_models.model_code.constants import POWERS, INFLUENCES
 
 
-def render_from_prediction(state, predictions, output_path):
+def render_from_prediction(state: dict, predictions: dict, output_path: str) -> None:
+    """
+    Renders the predicted orders on the current game map to an output file
+
+    Args:
+        state (dict): The current game state
+        predictions (dict): A dictionary mapping units to a list of tuples for possible orders
+        and their corresponding weightings
+        output_path (str): The output filename for the rendered .svg image
+    """
+
+    # Create a game and renderer
     game, phase = dict_to_state(state)
     renderer = CustomRenderer(game, phase=phase)
 
+    # Assemble the list of alterations from the predictions
     alterations = list(list() for _ in range(len(POWERS)))
     for unit, orders in predictions.items():
+
+        # Deal with retreating case where the unit has an *
+        if phase[-1] == "R":
+            unit = f"*{unit}"
+
+        # Find the corresponding power for the order
         for i, power in enumerate(POWERS):
             if power not in state["units"]:
                 continue
@@ -22,17 +42,27 @@ def render_from_prediction(state, predictions, output_path):
                     alterations[i].append(order)
                 break
 
+    # Perform the rendering
     renderer.custom_render(output_path=output_path, alterations=alterations)
 
 
 class CustomRenderer(Renderer):
+    """
+    THIS CLASS EXTENDS FROM AN EXISTING REPOSITORY: https://github.com/SHADE-AI/diplomacy
 
-    def __init__(self, game, svg_path=None, phase=None):
+    CustomRenderer behaves similarly to the existing Renderer class but also renders "alterations"
+    on the maps. These alterations are suggested orders with provided weightings. These weighting
+    determine the opacity and size of the suggestions that appear on the map.
+    """
+
+    def __init__(self, game: Game, svg_path=None, phase=None) -> None:
         super().__init__(game, svg_path)
         self.phase = phase
         self.background = None
         self.background_inserted = False
+        self.shadow_scalar = 1.5
 
+        # The territory colours have been desaturated for increased constrast with the orders
         self.opacities = {
             "austria": 0.5,
             "england": 0.25,
@@ -43,6 +73,7 @@ class CustomRenderer(Renderer):
             "turkey": 0.25
         }
 
+        # Cleaning up order structure of existing code
         self.order_dict = {
             OrderEnum.NO_ORDER: None,
             OrderEnum.HOLD_ORDER: self._issue_hold_order,
@@ -67,14 +98,24 @@ class CustomRenderer(Renderer):
             OrderEnum.DISBAND_ORDER: self.custom_issue_disband_order
         }
 
-    def apply_weight_opacity(g_node, weight):
+    def apply_weight_opacity(g_node: minidom.Element, weight: float) -> None:
+        """
+        Sets the opacity of a node (such as an arrow or shape)
+        """
         g_node.setAttribute('opacity', str(weight))
 
-    def scale_weight(weight):
-        return 1.2 - (1 - weight) * 3 / 4
+    def scale_weight(weight: float) -> float:
+        """
+        Scales a weighting using a custom function (for opacity and size)
+        """
+        return 1.5 - (1 - weight) * 3 / 4
 
     # Adapted from the renderer method of the Renderer class
-    def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None):
+    def custom_render(self, incl_orders=True, incl_abbrev=False, output_format='svg', output_path=None, alterations=None) -> str | None:
+        """
+        Saves and returns a map with the units, orders and alterations rendered
+        """
+
         self.background_inserted = False
         if output_format not in ['svg']:
             raise ValueError('Only "svg" format is current supported.')
@@ -84,13 +125,20 @@ class CustomRenderer(Renderer):
         # Parsing XML
         xml_map = minidom.parseString(self.xml_map)
 
-        # Resetting transparencies for opacity rendering
+        # IMPORTANT ADDITION: Resetting transparencies and stroke widths in classes
         style_elements = xml_map.getElementsByTagName('style')
         for style in style_elements:
             style_contents = style.firstChild.nodeValue
             if '.shadowdash' in style_contents:
-                new_contents = style_contents.replace('opacity:0.45', '').strip()
-                style.firstChild.nodeValue = new_contents
+                style_contents = style_contents.replace('opacity:0.45', '').strip()
+                style_contents = style_contents.replace('stroke-width:10', '').strip()
+            if '.convoyorder' in style_contents:
+                style_contents = style_contents.replace('stroke-width:6', '').strip()
+            if '.supportorder' in style_contents:
+                style_contents = style_contents.replace('stroke-width:6', '').strip()
+            style.firstChild.nodeValue = style_contents
+
+        # IMPORTANT ADDITION: Resetting transparencies and stroke widths in custom symbols
         altered_symbols = ["ConvoyTriangle", "SupportHoldUnit"]
         for symbol in altered_symbols:
             symbol_element = None
@@ -104,7 +152,7 @@ class CustomRenderer(Renderer):
                 if polygon.hasAttribute('opacity'):
                     polygon.removeAttribute('opacity')
 
-        # Setting phase and note
+        # Setting phase and note (from original code)
         nb_centers = [(power.name[:3], len(power.centers))
                       for power in self.game.powers.values()
                       if not power.is_eliminated()]
@@ -119,52 +167,65 @@ class CustomRenderer(Renderer):
         self.background = xml_map.createElement('g')
         self.background.setAttribute('id', 'back')
 
-        # Adding units and influence
+        # Adding units and influences
         for i, power in enumerate(self.game.powers.values()):
-            for unit in power.units:
-                xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=False)
-            for unit in power.retreats:
-                xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=True)
-            for center in power.centers:
-                xml_map = self.custom_set_influence(xml_map, center, power.name, has_supply_center=True)
-            for loc in power.influence:
-                xml_map = self.custom_set_influence(xml_map, loc, power.name, has_supply_center=False)
+            """
+            Try except block is for catching errors to do with invalid inputs that break rendering
+            So far, these issues include:
+                - Division by 0 when an army supports / attacks itself
+                - Non-existant territories (checked in code now)
+            """
+            try:
+                for unit in power.units:
+                    xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=False)
+                for unit in power.retreats:
+                    xml_map = self._add_unit(xml_map, unit, power.name, is_dislodged=True)
+                for center in power.centers:
+                    xml_map = self.custom_set_influence(xml_map, center, power.name, has_supply_center=True)
+                for loc in power.influence:
+                    xml_map = self.custom_set_influence(xml_map, loc, power.name, has_supply_center=False)
 
-            # Orders
-            if incl_orders:
+                # Rendering orders
+                if incl_orders:
 
-                # Regular orders (Normalized)
-                # A PAR H
-                # A PAR - BUR [VIA]
-                # A PAR S BUR
-                # A PAR S F BRE - PIC
-                # F BRE C A PAR - LON
-                for order_key in power.orders:
+                    # Regular orders (Normalized)
+                    # A PAR H
+                    # A PAR - BUR [VIA]
+                    # A PAR S BUR
+                    # A PAR S F BRE - PIC
+                    # F BRE C A PAR - LON
+                    for order_key in power.orders:
+                        if order_key[0] in 'RIO':
+                            order = power.orders[order_key]
+                        else:
+                            order = '{} {}'.format(order_key, power.orders[order_key])
+                        order_type, order_args = self.parse_regular_order(order, power)
+                        xml_map = self.display_order(order_type, order_args, xml_map)
 
-                    if order_key[0] in 'RIO':
-                        order = power.orders[order_key]
-                    else:
-                        order = '{} {}'.format(order_key, power.orders[order_key])
-                    order_type, order_args = self.parse_regular_order(order, power)
-                    xml_map = self.display_order(order_type, order_args, xml_map)
-
-                # Adjustment orders
-                # VOID xxx
-                # A PAR B
-                # A PAR D
-                # A PAR R BUR
-                # WAIVE
-                for order in power.adjust:
-                    order_type, order_args = self.parse_adjustment_order(order, power)
-
-            # Alterations
-            if alterations:
-                for (order, weight) in alterations[i]:
-                    order = order.replace('\\', '')
-                    order_type, order_args = self.parse_regular_order(order, power)
-                    if not order_type:
+                    # Adjustment orders
+                    # VOID xxx
+                    # A PAR B
+                    # A PAR D
+                    # A PAR R BUR
+                    # WAIVE
+                    for order in power.adjust:
                         order_type, order_args = self.parse_adjustment_order(order, power)
-                    xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
+
+                # Rendering alterations
+                if alterations:
+                    for (order, weight) in alterations[i]:
+                        order = order.replace('\\', '')
+                        order_type, order_args = self.parse_regular_order(order, power)
+                        if not order_type:
+                            order_type, order_args = self.parse_adjustment_order(order, power)
+                        if order_type:
+                            xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
+                        else:
+                            print("There was an issue relating a specified unit to the map")
+
+            except ZeroDivisionError:
+                print("A unit attempted an illegal order involving supporting/moving to itself")
+                pass
 
         # Removing abbrev and mouse layer
         svg_node = xml_map.getElementsByTagName('svg')[0]
@@ -187,26 +248,43 @@ class CustomRenderer(Renderer):
         # Returning
         return rendered_image
 
-    def display_order(self, order_type, order_args, xml_map):
+    def display_order(self, order_type: OrderEnum, order_args: list, xml_map: minidom.Document) -> minidom.Document:
+        """
+        Returns the rendering function that corresponds to the order type
+        """
         if order_type is None:
             return xml_map
         else:
             return self.order_dict[order_type](xml_map, *order_args)
 
-    def custom_display_order(self, order_type, order_args, xml_map, weight=1):
+    def custom_display_order(self, order_type: OrderEnum, order_args: list, xml_map: minidom.Document, weight=1) -> minidom.Document:
+        """
+        Returns the rendering function that corresponds to the order type
+        """
         if order_type is None:
             return xml_map
         else:
             return self.custom_order_dict[order_type](xml_map, *order_args, weight)
 
-    def parse_regular_order(self, order, power):
+    def parse_regular_order(self, order: str, power: Power) -> tuple[OrderEnum, list]:
+        """
+        Returns the order type and corresponding order arguments from a movement order
+
+        Args:
+            order (str): The order string
+            power (Power): The power making the order
+        Returns:
+            A tuple containing:
+                (OrderEnum): The order type
+                (list): A list of args corresponding to the order type
+        """
 
         # Normalizing and splitting in tokens
         tokens = self._norm_order(order)
         unit_loc = tokens[1]
 
-        # Parsing based on order type
-        if not tokens or len(tokens) < 3:
+        # Parsing based on order type (adapted from existing code)
+        if not tokens or len(tokens) < 3 or unit_loc not in INFLUENCES:
             return None, None
 
         elif tokens[2] == 'H':
@@ -214,10 +292,14 @@ class CustomRenderer(Renderer):
 
         elif tokens[2] == '-':
             dest_loc = tokens[-1] if tokens[-1] != 'VIA' else tokens[-2]
+            if dest_loc not in INFLUENCES:
+                return None, None
             return OrderEnum.MOVE_ORDER, [unit_loc, dest_loc, power.name]
 
         elif tokens[2] == 'S':
             dest_loc = tokens[-1]
+            if dest_loc not in INFLUENCES:
+                return None, None
             if '-' in tokens:
                 src_loc = tokens[4] if tokens[3] == 'A' or tokens[3] == 'F' else tokens[3]
                 return OrderEnum.SUPPORT_MOVE_ORDER, [unit_loc, src_loc, dest_loc, power.name]
@@ -227,13 +309,29 @@ class CustomRenderer(Renderer):
         elif tokens[2] == 'C':
             src_loc = tokens[4] if tokens[3] == 'A' or tokens[3] == 'F' else tokens[3]
             dest_loc = tokens[-1]
+            if src_loc not in INFLUENCES or dest_loc not in INFLUENCES:
+                return None, None
             if src_loc != dest_loc and '-' in tokens:
                 return OrderEnum.CONVOY_ORDER, [unit_loc, src_loc, dest_loc, power.name]
-        else:
-            return None, None
 
-    def parse_adjustment_order(self, order, power):
+        return None, None
+
+    def parse_adjustment_order(self, order: str, power: Power) -> tuple[OrderEnum, list]:
+        """
+        Returns the order type and corresponding order arguments from an adjustment order
+
+        Args:
+            order (str): The order string
+            power (Power): The power making the order
+        Returns:
+            A tuple containing:
+                (OrderEnum): The order type
+                (list): A list of args corresponding to the order type
+        """
+        # Splitting in tokens
         tokens = order.split()
+
+        # Parsing based on order type (adapted from existing code)
         if not tokens or tokens[0] == 'VOID' or tokens[-1] == 'WAIVE':
             return None, None
 
@@ -248,10 +346,17 @@ class CustomRenderer(Renderer):
         elif tokens[-2] == 'R':
             src_loc = tokens[1] if tokens[0] == 'A' or tokens[0] == 'F' else tokens[0]
             dest_loc = tokens[-1]
+            if src_loc not in INFLUENCES or dest_loc not in INFLUENCES:
+                return None, None
             return OrderEnum.MOVE_ORDER, [src_loc, dest_loc, power.name]
 
-        else:
-            return None, None
+        return None, None
+
+    """
+    All code below this point is largely based on code from the existing repository
+    The docstrings, comments and function sigantures featured here were all from the existing code base
+    The main additions were altering scaling and opacity for each order type
+    """
 
     def custom_set_influence(self, xml_map, loc, power_name, has_supply_center=False):
         """ Sets the influence on the map
@@ -380,6 +485,7 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the move order
             :return: Nothing
         """
+
         is_dislodged = self.game.get_current_phase()[-1] == 'R'
         src_loc_x, src_loc_y = self._get_unit_center(src_loc, is_dislodged)
         dest_loc_x, dest_loc_y = self._get_unit_center(dest_loc, is_dislodged)
@@ -408,7 +514,7 @@ class CustomRenderer(Renderer):
         line_with_shadow.setAttribute('x2', dest_loc_x)
         line_with_shadow.setAttribute('y2', dest_loc_y)
         line_with_shadow.setAttribute('class', 'varwidthshadow')
-        line_with_shadow.setAttribute('stroke-width', str(self._plain_stroke_width()))
+        line_with_shadow.setAttribute('stroke-width', str(self._plain_stroke_width() * CustomRenderer.scale_weight(weight)))
 
         line_with_arrow = xml_map.createElement('line')
         line_with_arrow.setAttribute('x1', src_loc_x)
@@ -439,14 +545,16 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the move order
             :return: Nothing
         """
+        scaled_weight = CustomRenderer.scale_weight(weight)
+
         # Symbols
         symbol = 'SupportHoldUnit'
         symbol_loc_x, symbol_loc_y = self.custom_center_symbol_around_unit(dest_loc, False, symbol, weight)
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', symbol_loc_x)
         symbol_node.setAttribute('y', symbol_loc_y)
-        symbol_node.setAttribute('height', str(float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)))
-        symbol_node.setAttribute('width', str(float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)))
+        symbol_node.setAttribute('height', str(float(self.metadata['symbol_size'][symbol][0]) * scaled_weight))
+        symbol_node.setAttribute('width', str(float(self.metadata['symbol_size'][symbol][1]) * scaled_weight))
         symbol_node.setAttribute('xlink:href', '#{}'.format(symbol))
 
         loc_x, loc_y = self._get_unit_center(loc, False)
@@ -456,7 +564,7 @@ class CustomRenderer(Renderer):
         delta_x = dest_loc_x - loc_x
         delta_y = dest_loc_y - loc_y
         vector_length = (delta_x ** 2 + delta_y ** 2) ** 0.5
-        delta_dec = float(self.metadata['symbol_size'][symbol][1]) / 2
+        delta_dec = float(self.metadata['symbol_size'][symbol][1]) * scaled_weight / 2
         dest_loc_x = round(loc_x + (vector_length - delta_dec) / vector_length * delta_x, 2)
         dest_loc_y = round(loc_y + (vector_length - delta_dec) / vector_length * delta_y, 2)
 
@@ -472,12 +580,16 @@ class CustomRenderer(Renderer):
         shadow_line.setAttribute('y2', str(dest_loc_y))
         shadow_line.setAttribute('class', 'shadowdash')
 
+        shadow_line.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
+
         support_line = xml_map.createElement('line')
         support_line.setAttribute('x1', str(loc_x))
         support_line.setAttribute('y1', str(loc_y))
         support_line.setAttribute('x2', str(dest_loc_x))
         support_line.setAttribute('y2', str(dest_loc_y))
-        support_line.setAttribute('class', 'supportorder')
+        support_line.setAttribute('class', 'convoyorder')
+
+        support_line.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
 
         # Inserting
         g_node.appendChild(shadow_line)
@@ -504,6 +616,7 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the move order
             :return: Nothing
         """
+        scaled_weight = CustomRenderer.scale_weight(weight)
         loc_x, loc_y = self._get_unit_center(loc, False)
         src_loc_x, src_loc_y = self._get_unit_center(src_loc, False)
         dest_loc_x, dest_loc_y = self._get_unit_center(dest_loc, False)
@@ -522,6 +635,7 @@ class CustomRenderer(Renderer):
 
         path_with_shadow = xml_map.createElement('path')
         path_with_shadow.setAttribute('class', 'shadowdash')
+        path_with_shadow.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
         path_with_shadow.setAttribute('d', 'M {x},{y} C {src_x},{src_y} {src_x},{src_y} {dest_x},{dest_y}'
                                       .format(x=loc_x,
                                               y=loc_y,
@@ -531,8 +645,8 @@ class CustomRenderer(Renderer):
                                               dest_y=dest_loc_y))
 
         path_with_arrow = xml_map.createElement('path')
-        path_with_arrow.setAttribute('class', 'supportorder')
-        path_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width() * 8 * CustomRenderer.scale_weight(weight)))
+        path_with_arrow.setAttribute('class', 'convoyorder')
+        path_with_arrow.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
         path_with_arrow.setAttribute('stroke', self.metadata['color'][power_name])
         path_with_arrow.setAttribute('marker-end', 'url(#arrow)')
         path_with_arrow.setAttribute('d', 'M {x},{y} C {src_x},{src_y} {src_x},{src_y} {dest_x},{dest_y}'
@@ -566,17 +680,19 @@ class CustomRenderer(Renderer):
             :param power_name: The power name issuing the convoy order
             :return: Nothing
         """
+        scaled_weight = CustomRenderer.scale_weight(weight)
         symbol = 'ConvoyTriangle'
+
         symbol_loc_x, symbol_loc_y = self.custom_center_symbol_around_unit(src_loc, False, symbol, weight)
-        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
-        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * scaled_weight
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * scaled_weight
         triangle = EquilateralTriangle(x_top=float(symbol_loc_x) + symbol_width / 2,
                                        y_top=float(symbol_loc_y),
                                        x_right=float(symbol_loc_x) + symbol_width,
                                        y_right=float(symbol_loc_y) + symbol_height,
                                        x_left=float(symbol_loc_x),
                                        y_left=float(symbol_loc_y) + symbol_height)
-        symbol_loc_y = str(float(symbol_loc_y) - float(self.metadata['symbol_size'][symbol][0]) / 6)
+        symbol_loc_y = str(float(symbol_loc_y) - scaled_weight * float(self.metadata['symbol_size'][symbol][0]) / 6)
 
         loc_x, loc_y = self._get_unit_center(loc, False)
         src_loc_x, src_loc_y = self._get_unit_center(src_loc, False)
@@ -610,8 +726,8 @@ class CustomRenderer(Renderer):
         symbol_node = xml_map.createElement('use')
         symbol_node.setAttribute('x', symbol_loc_x)
         symbol_node.setAttribute('y', symbol_loc_y)
-        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * CustomRenderer.scale_weight(weight)
-        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * CustomRenderer.scale_weight(weight)
+        symbol_height = float(self.metadata['symbol_size'][symbol][0]) * scaled_weight
+        symbol_width = float(self.metadata['symbol_size'][symbol][1]) * scaled_weight
 
         symbol_node.setAttribute('height', str(symbol_height))
         symbol_node.setAttribute('width', str(symbol_width))
@@ -628,6 +744,7 @@ class CustomRenderer(Renderer):
         src_shadow_line.setAttribute('x2', src_loc_x_1)
         src_shadow_line.setAttribute('y2', src_loc_y_1)
         src_shadow_line.setAttribute('class', 'shadowdash')
+        src_shadow_line.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
 
         src_convoy_line = xml_map.createElement('line')
         src_convoy_line.setAttribute('x1', loc_x)
@@ -635,6 +752,7 @@ class CustomRenderer(Renderer):
         src_convoy_line.setAttribute('x2', src_loc_x_1)
         src_convoy_line.setAttribute('y2', src_loc_y_1)
         src_convoy_line.setAttribute('class', 'convoyorder')
+        src_convoy_line.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
 
         dest_shadow_line = xml_map.createElement('line')
         dest_shadow_line.setAttribute('x1', src_loc_x_2)
@@ -642,6 +760,7 @@ class CustomRenderer(Renderer):
         dest_shadow_line.setAttribute('x2', dest_loc_x)
         dest_shadow_line.setAttribute('y2', dest_loc_y)
         dest_shadow_line.setAttribute('class', 'shadowdash')
+        dest_shadow_line.setAttribute('stroke-width', str(self.shadow_scalar * self._colored_stroke_width() * scaled_weight))
 
         dest_convoy_line = xml_map.createElement('line')
         dest_convoy_line.setAttribute('x1', src_loc_x_2)
@@ -650,6 +769,7 @@ class CustomRenderer(Renderer):
         dest_convoy_line.setAttribute('y2', dest_loc_y)
         dest_convoy_line.setAttribute('class', 'convoyorder')
         dest_convoy_line.setAttribute('marker-end', 'url(#arrow)')
+        dest_convoy_line.setAttribute('stroke-width', str(self._colored_stroke_width() * scaled_weight))
 
         # Inserting
         g_node.appendChild(src_shadow_line)

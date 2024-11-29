@@ -18,7 +18,7 @@ def run_knn(train_path, test_path, model_path):
 
     print("Training models")
     for unit, data in train_dict.items():
-        #print(f"Sample size for {unit}: {len(data[0])}")
+        # print(f"Sample size for {unit}: {len(data[0])}")
         k = k_max
         if k_max > len(data[0]):
             k = len(data[0])

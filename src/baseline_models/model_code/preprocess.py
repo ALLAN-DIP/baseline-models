@@ -2,6 +2,7 @@ import numpy as np
 from baseline_models.model_code.constants import *
 import json
 import re
+from typing import TextIO
 
 def get_unit_from_order(order):
     order_terms = order.split(" ")
@@ -11,15 +12,40 @@ def generate_key(unit, season_phase):
     key = unit + " " + season_phase
     return re.sub(r"[\\/ \s]", "_", key)
 
-def key_to_filename(key):
+def get_unit_from_order(order: str) -> str:
+    order_terms = order.split(" ")
+    return " ".join(order_terms[0:2])
+
+
+def generate_key(unit: str, season_phase: str) -> str:
+    key = unit + " " + season_phase
     return re.sub(r"[\\/ \s]", "_", key)
 
 
-# entry_to_vectors returns 3 lists:
-# [0] attributes: list of np array of attributes/features
-# [1] classes: list of orders
-# [2] keys: list of model types
-def entry_to_vectors(phase):
+def key_to_filename(key: str) -> str:
+    """
+    Converts the unit's key to a filename friendly version
+
+    Args:
+        key (str): The key describing the unit's location
+    Returns:
+        (str): The filename version
+    """
+    return re.sub(r"[\\/ \s]", "_", key)
+
+
+def entry_to_vectors(phase: dict) -> tuple:
+    """
+    Encodes a phase into a one hot encoding comprising of three lists:
+
+    Args:
+        phase (dict): The dictionary describing the current state
+    Returns:
+        (tuple): A tuple containing:
+            [0] attributes: list of np array of attributes/features
+            [1] classes: list of orders
+            [2] keys: list of model types
+    """
     state = phase["state"]
     orders = phase["orders"]
     results = phase["results"]
@@ -56,7 +82,7 @@ def entry_to_vectors(phase):
                         classes.append(CLASSNOORDER)
                     key = generate_key(home, season_phase)
                     keys.append(key)
-                    
+
             else:
                 # disband orders
                 unit_list = units[power]
@@ -93,7 +119,17 @@ def entry_to_vectors(phase):
     return attributes, classes, keys
 
 
-def generate_attribute(state, name_data=None, units_data=None, centers_data=None, homes_data=None, influences_data=None):
+def generate_attribute(state: dict, name_data=None, units_data=None, centers_data=None, homes_data=None, influences_data=None) -> np.ndarray:
+    """
+    Encodes the power, centers, homes and influence components of the states into a one-hot vector
+
+    Args:
+        state (dict): The current game state
+    Returns:
+        (np.ndarray): The one-hot vector encoding
+    """
+
+    # FIELDS = ["powers", "centers", "homes", "influence"]
     phases = {
         'SM': 0,
         'FM': 1,
@@ -112,6 +148,7 @@ def generate_attribute(state, name_data=None, units_data=None, centers_data=None
         influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
     n_powers = len(POWERS)
 
+    # Setting encoding sizes for each field
     phase_atr = np.zeros([len(phases)], dtype=bool)
     units_atr = np.zeros([n_powers * 2 * len(INFLUENCES)], dtype=bool)
     centers_atr = np.zeros([n_powers * len(CENTERS)], dtype=bool)
@@ -125,7 +162,7 @@ def generate_attribute(state, name_data=None, units_data=None, centers_data=None
     phase_atr[phases[season_phase]] = True
 
     for j, power in enumerate(POWERS):
-        # Units
+        # Encoding units
         if power in units_data:
             if not units_data[power] is None:
                 for i, region in enumerate(TERRITORIES):
@@ -133,38 +170,46 @@ def generate_attribute(state, name_data=None, units_data=None, centers_data=None
                         units_atr[2 * i * n_powers + j] = 1
                     elif f"F {region}" in units_data[power] or f"*F {region}" in units_data[power]:
                         units_atr[i * 2 * n_powers + j + 1] = 1
-        # Centers
+        # Encoding centers
         if power in centers_data:
             if not centers_data[power] is None:
                 for i, center in enumerate(CENTERS):
                     if center in centers_data[power]:
                         centers_atr[i * n_powers + j] = power
-        # Homes
+        # Encoding homes
         if power in homes_data:
             if not homes_data[power] is None:
                 for i, home in enumerate(HOMES):
                     if home in homes_data[power]:
                         homes_atr[i * n_powers + j] = power
-        # Influence
+        # Encoding influences
         if power in influences_data:
             if not influences_data[power] is None:
                 for i, inf in enumerate(TERRITORIES):
                     if inf in influences_data[power]:
                         influences_atr[i * n_powers + j] = power
 
+    # Combining encodings into one vector
     attribute = np.concatenate((phase_atr, units_atr, centers_atr, homes_atr, influences_atr))
 
     return attribute
 
 
-def get_season_phase(name_data, abbr = True):
+def get_season_phase(name_data: str, abbr=True) -> str:
+    """
+    Gets the current season phase type (for example "FM" is fall movement)
+    """
+    
     if abbr:
         return name_data[0] + name_data[-1]
     split = name_data.split()
     return split[0][0] + split[2][0]
 
 
-def get_units(state):
+def get_units(state: dict) -> list:
+    """
+    Gets the list of active units from the current state
+    """
     units = []
     units_data = state["units"]
     for _, unit_list in units_data.items():
@@ -174,7 +219,10 @@ def get_units(state):
     return units
 
 
-def generate_x_y(groups, src):
+def generate_x_y(groups: dict, src: TextIO) -> None:
+    """
+    Generates (state, order) pairs from a file input stream
+    """
     for line in src:
         game = json.loads(line)
         for phase in game["phases"]:
@@ -186,10 +234,12 @@ def generate_x_y(groups, src):
                 groups[key][0].append(attribute)
                 groups[key][1].append(order)
 
+
 def get_messages(state):
     messages = state["messages"]
     message_json = json.dumps(messages)
     return message_json
+
 
 def generate_attribute_message_pair(src):
     result = list()
@@ -201,6 +251,3 @@ def generate_attribute_message_pair(src):
             message_json = get_messages(phase)
             result.append((attribute, message_json,))
     return result
-
-
-        
