@@ -4,7 +4,6 @@ from time import time
 import pickle
 
 from baseline_models.model_code.preprocess import generate_x_y
-from baseline_models.model_code.preprocess import key_to_filename
 from baseline_models.model_code.evaluation import evaluate_model
 
 
@@ -27,7 +26,7 @@ def run_knn(train_path, test_path, model_path):
         model.fit(data[0], data[1])
 
         if model_path is not None:
-            with open(os.path.join(model_path, key_to_filename(unit)), 'wb') as model_file:
+            with open(os.path.join(model_path, unit), 'wb') as model_file:
                 pickle.dump(model, model_file)
 
     print("Preprocessing testing data")

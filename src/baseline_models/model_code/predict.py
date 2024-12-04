@@ -4,48 +4,119 @@ from time import time
 import json
 import numpy as np
 import argparse
-from diplomacy.engine.game import Game
 
 from baseline_models.model_code.preprocess import generate_key
 from baseline_models.model_code.preprocess import generate_attribute
 from baseline_models.model_code.preprocess import get_season_phase
-from baseline_models.model_code.preprocess import get_units
+from baseline_models.model_code.preprocess import get_units, get_retreats
+from baseline_models.model_code.constants import CLASSNOORDER
 
 from baseline_models.visualisation_code.custom_renderer import render_from_prediction
 
 
 RENDER_RESULT = True
 
-
-def predict(model_path: str, state: dict) -> dict:
+def predict(model_path: str, state: dict, power: str = None) -> list:
     """
     Returns the model's predicted orders from the current state
 
     Args:
         model_path (str): The absolute file path to the model
         state (dict): The dictionary encoding of the current game state
+        power (str): (Optional) Specify power to predict orders for
     Returns:
-        (dict): A dictionary mapping units to a list of tuples for possible orders
+        (list): List of orders predicted by the model
+    """
+
+    orders = list()
+    pred_orders = predict_probabilities(model_path, state, power)
+    season_phase = get_season_phase(state["name"])
+
+    if season_phase == "WA":
+        builds = state["builds"]
+        for builds_power, builds_data in builds.items():
+            if power != None and builds_power != power:
+                continue
+            pred_order_list = list()
+            if builds_data["count"] > 0:
+                homes = builds_data["homes"]
+                for home, order_probs in dict((k, pred_orders[k]) for k in homes).items():
+                    best_order_prob = max(order_probs, key=lambda x: x[1])
+                    if best_order_prob[0] != CLASSNOORDER:
+                        pred_order_list.append(best_order_prob)
+
+                sorted_orders = sorted(pred_order_list, key=lambda x: x[1], reverse=True)
+                for i in range(builds_data["count"]):
+                    if i < len(sorted_orders):
+                        orders.append(sorted_orders[i][0])
+
+            elif builds_data["count"] < 0:
+                units = get_units(state, builds_power)
+                for unit, order_probs in dict((k, pred_orders[k]) for k in units).items():
+                    for order_prob in order_probs:
+                        if order_prob[0] != CLASSNOORDER:
+                            pred_order_list.append(order_prob)
+
+                sorted_orders = sorted(pred_order_list, key=lambda x: x[1], reverse=True)
+                for i in range(builds_data["count"]*-1):
+                    if i < len(sorted_orders):
+                        orders.append(sorted_orders[i][0])
+    else:
+            for unit, order_probs in pred_orders.items():
+                orders.append(max(order_probs, key=lambda x: x[1])[0])
+    
+    return orders
+
+def predict_probabilities(model_path: str, state: dict, power: str = None) -> dict:
+    """
+    Returns the model's predicted probabilities for all possible orders from the current state
+
+    Args:
+        model_path (str): The absolute file path to the model
+        state (dict): The dictionary encoding of the current game state
+        power (str): (Optional) Specify power to predict orders for
+    Returns:
+        (dict): A dictionary mapping units or centers to a list of tuples for possible orders
         and their corresponding probabilities
     """
-    game = Game(map_name=state["map"])
-    # print(game.get_map_power_names())
-    game.set_state(state)
-    # valid_orders = game.get_all_possible_orders()
 
     # Encode state as model input
     pred_orders = dict()
     attribute = generate_attribute(state)
     season_phase = get_season_phase(state["name"])
-    units = get_units(state)
 
+    if season_phase[-1] == 'R':
+        units = get_retreats(state, power)
+        pred_orders = predict_order(units, season_phase, model_path, attribute)
+
+    elif season_phase == 'WA':
+        builds = state["builds"]
+        for builds_power, builds_data in builds.items():
+            if power != None and builds_power != power:
+                continue
+            if builds_data["count"] > 0:
+                homes = builds_data["homes"]
+                pred_orders.update(predict_order(homes, season_phase, model_path, attribute))
+
+            elif builds_data["count"] < 0:
+                units = get_units(state, builds_power)
+                pred_orders.update(predict_order(units, season_phase, model_path, attribute))
+
+    else:
+        units = get_units(state, power)
+        pred_orders = predict_order(units, season_phase, model_path, attribute)
+
+    return pred_orders
+
+def predict_order(units, season_phase, model_path, attribute):
+    pred_orders = dict()
     for unit in units:
         # Don't consider non-displaced units in a retreat phase
-        if season_phase[-1] == 'R' and unit[0] != '*':
-            continue
+        # if season_phase[-1] == 'R' and unit[0] != '*':
+        #     continue
 
         # Current model implementation combines retreats and regular orders into one model
-        unit = unit.replace("*", "")
+        # unit = unit.replace("*", "")
         key = generate_key(unit, season_phase)
         file_path = os.path.join(model_path, key)
 
@@ -61,6 +132,7 @@ def predict(model_path: str, state: dict) -> dict:
 
                 pred_orders[unit] = pred_order_proba
         else:
+            # Currently does not assign order for a unit if corresponding model doesn't exist
             print(f"Model not found | key: {key}")
     return pred_orders
 
@@ -96,7 +168,7 @@ def render_outputs(model_path: str, test_path: str, output_path: str, max_games=
                 print(f"Current state: {name}")
 
                 # Predict orders from the current state
-                pred_probs = predict(model_path, state)
+                pred_probs = predict_probabilities(model_path, state)
                 sorted_probs = dict()
 
                 # Taking the top number of orders for each army
@@ -110,7 +182,7 @@ def render_outputs(model_path: str, test_path: str, output_path: str, max_games=
                             sorted_probs[unit][m] = (sorted_probs[unit][m][0], sorted_probs[unit][m][1] / scalar)
 
                     # Rendering the order suggestions and saving as a file.
-                    file_name = f"output_{i}_{state["name"]}_{unit.replace("/", "_")}.svg".replace(" ", "_")
+                    file_name = f"output_{i}_{state['name']}_{unit.replace('/', '_')}.svg".replace(" ", "_")
                     render_from_prediction(state, sorted_probs, os.path.join(output_path, file_name))
                     sorted_probs.clear()
 

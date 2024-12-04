@@ -4,20 +4,20 @@ import json
 import re
 from typing import TextIO
 
-def get_unit_from_order(order):
-    order_terms = order.split(" ")
-    return " ".join(order_terms[0:2])
-
-def generate_key(unit, season_phase):
-    key = unit + " " + season_phase
-    return re.sub(r"[\\/ \s]", "_", key)
-
 def get_unit_from_order(order: str) -> str:
     order_terms = order.split(" ")
     return " ".join(order_terms[0:2])
 
-
 def generate_key(unit: str, season_phase: str) -> str:
+    """
+    Converts the unit description and season phase to model filename
+
+    Args:
+        unit (str): String describing unit type and location
+        season_phase (str): Season phase type (e.g. "FM", "SR", "WA")
+    Returns:
+        (str): Model key and filename
+    """
     key = unit + " " + season_phase
     return re.sub(r"[\\/ \s]", "_", key)
 
@@ -82,7 +82,6 @@ def entry_to_vectors(phase: dict) -> tuple:
                         classes.append(CLASSNOORDER)
                     key = generate_key(home, season_phase)
                     keys.append(key)
-
             else:
                 # disband orders
                 unit_list = units[power]
@@ -206,15 +205,45 @@ def get_season_phase(name_data: str, abbr=True) -> str:
     return split[0][0] + split[2][0]
 
 
-def get_units(state: dict) -> list:
+def get_units(state: dict, power: str = None) -> list:
     """
     Gets the list of active units from the current state
     """
     units = []
     units_data = state["units"]
+
+    if power != None:
+        if power in units_data:
+            return units_data[power]
+        else:
+            print(f"Power not found: {power}")
+            return units
+
     for _, unit_list in units_data.items():
         if unit_list is not None:
             for unit in unit_list:
+                units.append(unit)
+    return units
+
+def get_retreats(state: dict, power: str = None) -> list:
+    """
+    Gets the list of retreating units from the current state
+    """
+    units = []
+    retreats_data = state["retreats"]
+
+    if power != None:
+        if power in retreats_data:
+            for unit in retreats_data[power].keys():
+                units.append(unit)
+            return units
+        else:
+            print(f"Power not found: {power}")
+            return units
+
+    for _, unit_dict in retreats_data.items():
+        if unit_dict is not None:
+            for unit in unit_dict.keys():
                 units.append(unit)
     return units
 
