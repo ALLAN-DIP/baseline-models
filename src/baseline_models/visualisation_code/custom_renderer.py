@@ -7,7 +7,7 @@ from diplomacy.utils.equilateral_triangle import EquilateralTriangle
 from baseline_models.visualisation_code.utils import OrderEnum
 from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
-from baseline_models.model_code.constants import POWERS, INFLUENCES
+from baseline_models.model_code.constants import POWERS, INFLUENCES, CLASSNOORDER
 
 
 def render_from_prediction(state: dict, predictions: dict, output_path: str) -> None:
@@ -219,6 +219,9 @@ class CustomRenderer(Renderer):
                         if not order_type:
                             order_type, order_args = self.parse_adjustment_order(order, power)
                         if order_type:
+                            if order_type == OrderEnum.NO_ORDER:
+                                # TODO: Handle rendering no order during adjusment phase
+                                continue
                             xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
                         else:
                             print("There was an issue relating a specified unit to the map")
@@ -281,10 +284,13 @@ class CustomRenderer(Renderer):
 
         # Normalizing and splitting in tokens
         tokens = self._norm_order(order)
-        unit_loc = tokens[1]
 
         # Parsing based on order type (adapted from existing code)
-        if not tokens or len(tokens) < 3 or unit_loc not in INFLUENCES:
+        if not tokens or len(tokens) < 3:
+            return None, None
+        
+        unit_loc = tokens[1]
+        if unit_loc not in INFLUENCES:
             return None, None
 
         elif tokens[2] == 'H':
@@ -334,6 +340,9 @@ class CustomRenderer(Renderer):
         # Parsing based on order type (adapted from existing code)
         if not tokens or tokens[0] == 'VOID' or tokens[-1] == 'WAIVE':
             return None, None
+        
+        if tokens[0] == CLASSNOORDER:
+            return OrderEnum.NO_ORDER, None
 
         elif tokens[-1] == 'B':
             if len(tokens) < 3:
