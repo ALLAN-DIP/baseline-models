@@ -4,6 +4,46 @@ import json
 import re
 from typing import TextIO
 
+
+def get_power_of_unit(state: dict, unit: str) ->  str:
+    """
+    Gets the power of the unit
+
+    Args:
+        state (dict): Dictionary storing state information
+        unit (str): string of the unit
+
+    Returns:
+        (str): the name of the power that the unit belongs to
+        If not found, None is returned.
+    """
+    units = state["units"]
+    for (power, unit_ls) in units.items():
+        if unit in unit_ls:
+            return power
+        if f'*{unit}' in unit_ls:
+            return power
+    return None
+
+
+def get_power_of_home(state: dict, home: str) -> str: 
+    """
+    Gets the power of a home province
+
+    Args:
+        state (dict): Dictionary storing state information
+        home (str): string of the home (uppercase 3 letter code)
+
+    Returns:
+        (str): the name of the power that the home province belongs to 
+        If not found, None is returned.
+    """
+    homes = state["homes"]
+    for (power, homes_ls) in homes.items():
+        if home in homes_ls:
+            return power
+    return None
+
 def get_unit_from_order(order: str) -> str:
     order_terms = order.split(" ")
     return " ".join(order_terms[0:2])
