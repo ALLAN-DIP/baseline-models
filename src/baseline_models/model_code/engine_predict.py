@@ -6,9 +6,9 @@ class PHASES:
     BUILD="WA"
     RETREAT="R"
 
-class VisualAdvice:
+class BaselineAdvice:
     """
-    Class for generating baseline model predictions to render visual move suggestions on game engine
+    Class for generating baseline model predictions to display move suggestions on game engine
     """
     def __init__(self, model_path: str, state: dict, power: str, province: str):
         """
@@ -123,7 +123,7 @@ class VisualAdvice:
 
         else: # remove units
             units = get_units(self.state, self.power)
-            disband_unit = VisualAdvice.get_unit_from_province(units, self.province)
+            disband_unit = BaselineAdvice.get_unit_from_province(units, self.province)
             if disband_unit is not None:
                 preds = predict_order([disband_unit], self.season_phase, self.model_path, self.attribute)
             return preds
@@ -139,7 +139,7 @@ class VisualAdvice:
         """
         preds = dict()
         units = get_retreats(self.state, self.power)
-        retreat_unit = VisualAdvice.get_unit_from_province(units, self.province)     
+        retreat_unit = BaselineAdvice.get_unit_from_province(units, self.province)     
         
         if retreat_unit is None: # no retreat unit in province
             return preds
@@ -160,7 +160,7 @@ class VisualAdvice:
         """
         preds = dict()
         units = get_units(self.state, self.power)
-        move_unit = VisualAdvice.get_unit_from_province(units, self.province)
+        move_unit = BaselineAdvice.get_unit_from_province(units, self.province)
         if move_unit is None:
             return preds
         
@@ -196,6 +196,6 @@ class VisualAdvice:
         else:
             preds = self.predict_move()
 
-        sorted_preds = VisualAdvice.sort_preds(preds, phase, top_k)
+        sorted_preds = BaselineAdvice.sort_preds(preds, phase, top_k)
 
         return sorted_preds
