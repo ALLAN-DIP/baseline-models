@@ -45,7 +45,7 @@ class BaselineAdvice:
         if attr is not None:
             self.attribute = attr
         return self.attribute
-    
+
     def get_unit_from_province(units: list, province: str):
         """
         Retrieves a unit in the provided province 
@@ -117,12 +117,16 @@ class BaselineAdvice:
         
         if builds["count"] > 0: # can add units
             homes = builds["homes"]
+            if self.province.find('/') != -1: # need to clean up naming
+                self.province = self.province.split('/')[0]
             if self.province in homes:
                 preds = predict_order([self.province], self.season_phase, self.model_path, self.attribute)
             return preds
 
         else: # remove units
             units = get_units(self.state, self.power)
+            if self.province.find('/') != -1: # need to clean up naming
+                self.province = self.province.replace('/', '_')
             disband_unit = BaselineAdvice.get_unit_from_province(units, self.province)
             if disband_unit is not None:
                 preds = predict_order([disband_unit], self.season_phase, self.model_path, self.attribute)
