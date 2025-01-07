@@ -3,10 +3,15 @@ from baseline_models.model_code.constants import *
 import json
 import re
 from typing import TextIO
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
+
 
 def get_unit_from_order(order: str) -> str:
     order_terms = order.split(" ")
     return " ".join(order_terms[0:2])
+
 
 def generate_key(unit: str, season_phase: str) -> str:
     """
@@ -19,18 +24,6 @@ def generate_key(unit: str, season_phase: str) -> str:
         (str): Model key and filename
     """
     key = unit + " " + season_phase
-    return re.sub(r"[\\/ \s]", "_", key)
-
-
-def key_to_filename(key: str) -> str:
-    """
-    Converts the unit's key to a filename friendly version
-
-    Args:
-        key (str): The key describing the unit's location
-    Returns:
-        (str): The filename version
-    """
     return re.sub(r"[\\/ \s]", "_", key)
 
 
@@ -61,13 +54,11 @@ def entry_to_vectors(phase: dict) -> tuple:
 
     if season_phase == "WA":
         for power, build_dict in builds.items():
-            # check count
             if build_dict["count"] == 0:
                 continue
             elif build_dict["count"] > 0:
                 # build orders
                 homes = build_dict["homes"]
-                # for each home, record whether there is a build or no build
                 order_list = orders[power]
                 for home in homes:
                     attributes.append(attribute)
@@ -86,7 +77,6 @@ def entry_to_vectors(phase: dict) -> tuple:
                 # disband orders
                 unit_list = units[power]
                 order_list = orders[power]
-                # for each unit, record whether it is disbanded or not
                 for unit in unit_list:
                     attributes.append(attribute)
                     if order_list is not None:
@@ -143,7 +133,7 @@ def generate_attribute(state: dict, name_data=None, units_data=None, centers_dat
         name_data = state["name"]               # string of state name e.g. S1901M
         units_data = state["units"]             # dict of powers to their units e.g. "AUSTRIA": ["A SER","A TYR","F ADR"]
         centers_data = state["centers"]         # dict of powers to centers under their control e.g. "AUSTRIA": ["BUD","TRI","VIE", "SER"]
-        homes_data = state["homes"]             # dict of starting territory of each power?
+        homes_data = state["homes"]             # dict of powers to centers where they can build units
         influences_data = state["influence"]    # dict of powers to the territories under their influence (territories that are last occupied by them)
     n_powers = len(POWERS)
 
@@ -216,7 +206,7 @@ def get_units(state: dict, power: str = None) -> list:
         if power in units_data:
             return units_data[power]
         else:
-            print(f"Power not found: {power}")
+            logger.info(f"Power not found: {power}")
             return units
 
     for _, unit_list in units_data.items():
@@ -224,6 +214,7 @@ def get_units(state: dict, power: str = None) -> list:
             for unit in unit_list:
                 units.append(unit)
     return units
+
 
 def get_retreats(state: dict, power: str = None) -> list:
     """
@@ -238,7 +229,7 @@ def get_retreats(state: dict, power: str = None) -> list:
                 units.append(unit)
             return units
         else:
-            print(f"Power not found: {power}")
+            logger.info(f"Power not found: {power}")
             return units
 
     for _, unit_dict in retreats_data.items():

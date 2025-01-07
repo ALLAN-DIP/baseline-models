@@ -12,6 +12,9 @@ from baseline_models.model_code.preprocess import get_units, get_retreats
 from baseline_models.model_code.constants import CLASSNOORDER
 
 from baseline_models.visualisation_code.custom_renderer import render_from_prediction
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
 
 
 RENDER_RESULT = True
@@ -133,7 +136,7 @@ def predict_order(units, season_phase, model_path, attribute):
                 pred_orders[unit] = pred_order_proba
         else:
             # Currently does not assign order for a unit if corresponding model doesn't exist
-            print(f"Model not found | key: {key}")
+            logger.info(f"Model not found | key: {key}")
     return pred_orders
 
 
@@ -156,7 +159,7 @@ def render_outputs(model_path: str, test_path: str, output_path: str, max_games=
         # Each line in the test file is a json for a game
         for i, line in enumerate(test):
             game = json.loads(line)
-            print(f"Currently game id: {i}")
+            logger.info(f"Currently game id: {i}")
 
             # Iterate through each phase
             for j, phase in enumerate(game["phases"]):
@@ -165,7 +168,7 @@ def render_outputs(model_path: str, test_path: str, output_path: str, max_games=
 
                 if name == "COMPLETED":
                     continue
-                print(f"Current state: {name}")
+                logger.info(f"Current state: {name}")
 
                 # Predict orders from the current state
                 pred_probs = predict_probabilities(model_path, state)
@@ -246,4 +249,4 @@ def main():
 if __name__ == "__main__":
     start_time = time()
     main()
-    print(f"Total runtime: {(time() - start_time):.2f} seconds")
+    logger.info(f"Total runtime: {(time() - start_time):.2f} seconds")

@@ -8,6 +8,9 @@ from baseline_models.visualisation_code.utils import OrderEnum
 from baseline_models.visualisation_code.dict_to_state import dict_to_state
 
 from baseline_models.model_code.constants import POWERS, INFLUENCES, CLASSNOORDER
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
 
 
 def render_from_prediction(state: dict, predictions: dict, output_path: str) -> None:
@@ -224,10 +227,10 @@ class CustomRenderer(Renderer):
                                 continue
                             xml_map = self.custom_display_order(order_type, order_args, xml_map, weight)
                         else:
-                            print("There was an issue relating a specified unit to the map")
+                            logger.info("There was an issue relating a specified unit to the map")
 
             except ZeroDivisionError:
-                print("A unit attempted an illegal order involving supporting/moving to itself")
+                logger.info("A unit attempted an illegal order involving supporting/moving to itself")
                 pass
 
         # Removing abbrev and mouse layer

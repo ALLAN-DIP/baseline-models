@@ -1,4 +1,7 @@
 import os
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
 
 
 class Splitter:
@@ -25,7 +28,7 @@ class Splitter:
                 for s, split in enumerate(self.split_points):
                     if n < split:
                         write_files[s].write(line)
-                        print(f"Writing line {n} in set {self.split_names[s]}")
+                        logger.info(f"Writing line {n} in set {self.split_names[s]}")
                         break
                 if n >= self.total_games:
                     break

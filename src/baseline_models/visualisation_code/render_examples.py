@@ -1,9 +1,12 @@
 from baseline_models.visualisation_code.custom_renderer import CustomRenderer
 from baseline_models.visualisation_code.dict_to_state import dict_to_state
 from baseline_models.visualisation_code.examples import EXAMPLE_RENDERS
+from baseline_models.utils.utils import return_logger
 
 import os
 from argparse import ArgumentParser
+
+logger = return_logger(__name__)
 
 PARENT_DIR = os.path.dirname(os.getcwd())
 OUT_PATH = os.path.join(PARENT_DIR, "output")
@@ -28,7 +31,7 @@ def render_maps(data_dict=EXAMPLE_RENDERS, output_path=OUT_PATH):
             state = render_info["state"]
             alterations = render_info["alterations"]
         except KeyError:
-            print(f"Entry of index {i} is missing the state or alterations item and will not be rendered")
+            logger.info(f"Entry of index {i} is missing the state or alterations item and will not be rendered")
             continue
 
         game, phase = dict_to_state(state)
@@ -38,7 +41,7 @@ def render_maps(data_dict=EXAMPLE_RENDERS, output_path=OUT_PATH):
         for j, alt in enumerate(alterations):
             renderer.custom_render(output_path=os.path.join(output_path, f"out_{i}.{j}.svg"), alterations=alt)
 
-    print("Rendering complete")
+    logger.info("Rendering complete")
 
 
 def main():

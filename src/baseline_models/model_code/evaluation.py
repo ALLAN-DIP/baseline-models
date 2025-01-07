@@ -1,6 +1,9 @@
 import os
 import pickle
 from baseline_models.model_code.constants import *
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
 
 
 class Results():
@@ -26,7 +29,7 @@ class Results():
 
     def evaluate(self, test_dict):
         for model_type, data in test_dict.items():
-            # print(f"Predicting for key {model_type}")
+            # logger.info(f"Predicting for key {model_type}")
 
             class_correct = 0
             class_total = 0
@@ -44,7 +47,7 @@ class Results():
                         class_correct += 1
                     class_total += 1
             else:
-                print(f"Model not found | key: {model_type}")
+                logger.info(f"Model not found | key: {model_type}")
                 class_total += len(true_orders)
 
             self.class_corrects[model_type] = class_correct

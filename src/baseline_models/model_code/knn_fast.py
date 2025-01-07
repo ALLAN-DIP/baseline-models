@@ -5,19 +5,22 @@ import pickle
 
 from baseline_models.model_code.preprocess import generate_x_y
 from baseline_models.model_code.evaluation import evaluate_model
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
 
 
 def run_knn(train_path, test_path, model_path):
     train_dict = dict()
     k_max = 10
 
-    print("Preprocessing training data")
+    logger.info("Preprocessing training data")
     with open(train_path, 'r') as train:
         generate_x_y(train_dict, train)
 
-    print("Training models")
+    logger.info("Training models")
     for unit, data in train_dict.items():
-        # print(f"Sample size for {unit}: {len(data[0])}")
+        # logger.info(f"Sample size for {unit}: {len(data[0])}")
         k = k_max
         if k_max > len(data[0]):
             k = len(data[0])
@@ -29,14 +32,14 @@ def run_knn(train_path, test_path, model_path):
             with open(os.path.join(model_path, unit), 'wb') as model_file:
                 pickle.dump(model, model_file)
 
-    print("Preprocessing testing data")
+    logger.info("Preprocessing testing data")
     test_dict = dict()
     with open(test_path, 'r') as test:
         generate_x_y(test_dict, test)
 
-    print("Evaluating model")
+    logger.info("Evaluating model")
     results = evaluate_model(test_dict, model_path)
-    print(results)
+    logger.info(results)
 
 
 def main():
@@ -51,4 +54,4 @@ def main():
 if __name__ == "__main__":
     start_time = time()
     main()
-    print(f"Total runtime: {(time() - start_time):.2f} seconds")
+    logger.info(f"Total runtime: {(time() - start_time):.2f} seconds")
