@@ -10,20 +10,19 @@ class BaselineAdvice:
     """
     Class for generating baseline model predictions to display move suggestions on game engine
     """
-    def __init__(self, model_path: str, state: dict, power: str, province: str):
+    def __init__(self, model_path: str, state: dict, province: str):
         """
         Class constructor
 
         Params:
             model_path (str) -- file path to model
             state (dict) -- dictionary storing current state information
-            power (str) -- controlling power
             province (str) -- province selected
         """
         self.model_path = model_path
         self.state = state
-        self.power = power
         self.province = province
+        self.power = None # power associated with province selected
         self.season_phase = None
         self.attribute = None
     
@@ -45,21 +44,68 @@ class BaselineAdvice:
         if attr is not None:
             self.attribute = attr
         return self.attribute
-
-    def get_unit_from_province(units: list, province: str):
+    
+    def set_power(self, power):
         """
-        Retrieves a unit in the provided province 
-        from a provided list of units
-
-        Params:
-            units (list) -- list of units 
-            province (str) -- uppercase 3 letter code of the province
+        Setter for associated power
         """
-        if units is None or province is None:
-            return None
-        for unit in units:
-            if province == unit.split(" ")[1]:
-                return unit
+        if power != None:
+            self.power = power
+        return self.power
+    
+
+    def get_unit_from_province(self):
+        """
+        returns active unit and associated power in the provided province
+
+        Returns:
+            (tuple) -- tuple containing active unit and associated power. 
+                        Else, returns None if active unit not found.
+        """
+        units = self.state["units"]
+        for power, units_ls in units.items():
+            if units_ls is None:
+                continue
+
+            for unit in units_ls:
+                if unit.split(" ")[1] == self.province:
+                    return (unit, power)
+        
+        return None
+    
+    def get_retreat_from_province(self):
+        """
+        returns retreating unit and associated power in the provided province
+
+        Returns:
+            (tuple) -- tuple containing retreating unit and associated power. 
+                        Else, returns None if retreating unit not found in provided province. 
+        """
+        retreats = self.state["retreats"]
+        for power, units_dict in retreats.items():
+            if units_dict is None:
+                continue
+            for unit in units_dict.keys():
+                if unit.split(" ")[1] == self.province:
+                    return (unit, power)
+        return None
+    
+    def get_home_power_of_province(self):
+        """
+        Returns the power that has this province as one of its homes
+        
+        Returns:
+            (string)  -- string representing the home power 
+        """
+        homes = self.state["homes"]
+        if self.province.find('/') != -1: # need to clean up naming if have multiple names
+            self.province = self.province.split('/')[0]
+        for power, home_ls in homes.items():
+            if home_ls is None:
+                continue
+            for home in home_ls:
+                if home == self.province:
+                    return power
         return None
 
     def sort_preds(preds: dict, phase: PHASES, top_k: int):
@@ -76,7 +122,7 @@ class BaselineAdvice:
             (dict) -- dictionary where each key is an order and its corresponding value is a dictionary
             storing its rank, predicted probability and rendering opacity. Rank is determined by predicted probability 
             sorted in decreasing order.
-            e.g., {'A GAL R WAR': {'rank': 0, 'pred_prob': 0.3635689010282275, 'opacity': 1}, ...}
+            e.g., {'A GAL R WAR': {'rank': 0, 'pred_prob': 0.3635689010282275, 'opacity': 1}, ...}}
         """
         sorted_json = dict()
         sorted_orders = []
@@ -91,7 +137,7 @@ class BaselineAdvice:
             sorted_json[order]["pred_prob"] = pred_prob
             sorted_json[order]["opacity"] = pred_prob/sorted_orders[0][1] # linearly scaled
         return sorted_json
-
+    
     # PREDICT FUNCTIONS 
     def predict_build(self):
         """
@@ -105,32 +151,37 @@ class BaselineAdvice:
         preds = dict() # key=home, val=[(possible_order, pred_prob),...]
 
         # check invalid
-        if self.state is None or self.power is None:
+        if self.state is None:
             return preds
         
-        builds = self.state["builds"].get(self.power)
+        res = self.get_unit_from_province()
+        # unit is present in province, predict if it is a disbandable unit
+        if res is not None:
+            unit, power = res
+            builds = self.state["builds"].get(power)
+            if builds is None:
+                return preds
+            if builds["count"] < 0:
+                preds = predict_order([unit], self.season_phase, self.model_path, self.attribute)
+                self.set_power(power)
+            return preds
+        
+        # unit is not present in province, predict if it is a buildable province
+        power = self.get_home_power_of_province()
+        if power is None:
+            # province is not a home
+            return preds
+        
+        # check if power can build
+        builds = self.state["builds"].get(power)
         if builds is None:
             return preds
-
-        if builds["count"] == 0: # no builds
-            return preds
-        
-        if builds["count"] > 0: # can add units
-            homes = builds["homes"]
-            if self.province.find('/') != -1: # need to clean up naming
-                self.province = self.province.split('/')[0]
-            if self.province in homes:
+        if builds["count"] > 0:
+            power_homes = builds["homes"]
+            if self.province in power_homes:
                 preds = predict_order([self.province], self.season_phase, self.model_path, self.attribute)
-            return preds
-
-        else: # remove units
-            units = get_units(self.state, self.power)
-            if self.province.find('/') != -1: # need to clean up naming
-                self.province = self.province.replace('/', '_')
-            disband_unit = BaselineAdvice.get_unit_from_province(units, self.province)
-            if disband_unit is not None:
-                preds = predict_order([disband_unit], self.season_phase, self.model_path, self.attribute)
-            return preds
+                self.set_power(power)
+        return preds
 
     def predict_retreat(self):
         """
@@ -142,15 +193,14 @@ class BaselineAdvice:
             and the corresponding value is a list of its possible orders and predicted probabilities.
         """
         preds = dict()
-        units = get_retreats(self.state, self.power)
-        retreat_unit = BaselineAdvice.get_unit_from_province(units, self.province)     
-        
-        if retreat_unit is None: # no retreat unit in province
+        res = self.get_retreat_from_province()
+        if res is None:
             return preds
-        
+        retreat_unit, power = res
         if retreat_unit[0] == '*':
             retreat_unit = retreat_unit[1:]
 
+        self.set_power(power)
         return predict_order([retreat_unit], self.season_phase, self.model_path, self.attribute)
     
     def predict_move(self):
@@ -163,11 +213,13 @@ class BaselineAdvice:
             and the corresponding value is a list of its possible orders and predicted probabilities.
         """
         preds = dict()
-        units = get_units(self.state, self.power)
-        move_unit = BaselineAdvice.get_unit_from_province(units, self.province)
-        if move_unit is None:
+        res = self.get_unit_from_province()
+
+        if res is None:
             return preds
         
+        move_unit, power = res
+        self.set_power(power)
         return predict_order([move_unit], self.season_phase, self.model_path, self.attribute)
     
     def predict(self, top_k: int = 5):
@@ -185,7 +237,9 @@ class BaselineAdvice:
         self.set_season_phase()
         phase = PHASES.MOVEMENT
         preds = dict()
-
+        
+        print(f'[SERVER] self.state: {self.state}')
+        
         if self.model_path is None or self.model_path == "":
             return {"error": "Server unable to locate model"}
 
@@ -202,4 +256,4 @@ class BaselineAdvice:
 
         sorted_preds = BaselineAdvice.sort_preds(preds, phase, top_k)
 
-        return sorted_preds
+        return {"power": self.power, "preds": sorted_preds}
