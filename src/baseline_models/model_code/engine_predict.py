@@ -237,9 +237,7 @@ class BaselineAdvice:
         self.set_season_phase()
         phase = PHASES.MOVEMENT
         preds = dict()
-        
-        print(f'[SERVER] self.state: {self.state}')
-        
+                
         if self.model_path is None or self.model_path == "":
             return {"error": "Server unable to locate model"}
 
