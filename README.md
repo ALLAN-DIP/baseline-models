@@ -3,6 +3,7 @@ The repository is modularised into three main components:
 - model_code: Contains the base model code such as KNN and LR for training models
 - visualisation_code: Contains code for visualising suggestions
 - web_code: Contains starter code for a interactive web implementation (development has been paused)
+- message_advisor_code: Contains client code for Elastic Search vector database for querying message advice given game state
 
 ## Setup
 Perform the following setup to run the code.
@@ -31,3 +32,38 @@ Keyword arguments:
 Renders example suggestions on states defined in "examples.py"
 Keyword arguments:
 - -o:   The path to the output folder for the rendered suggestions overlayed on the map
+
+## message_advisor_code/create_index.py
+Create and populate elastic search index for querying message advice
+Keyword arguments:
+- -d:   The path to the jsonl file containing game states to be inserted into the database
+- -m:   The path to the model folder containing the model binaries
+- -u:   The user used to access elasticsearch
+- -p:   The password used to access elasticsearch
+- -eh:  The URL of the elastic database API
+- -c:   The path to the SSL certificate for authenticating to elasticsearch
+- -i:   The name of the index to be created
+
+The script requires a running elastic search instance.
+To start a local ES single-node cluster using docker:
+```bash
+$ docker network create elastic
+$ docker pull docker.elastic.co/elasticsearch/elasticsearch:8.16.1
+$ docker run --name es01 --net elastic -p 9200:9200 -it -m 1GB docker.elastic.co/elasticsearch/elasticsearch:8.16.1
+```
+
+The above command will generate a password for the elastic user, which needs to be passed as an argument to the script.
+
+Additionally, an SSL certificate is also generated, which can be copied to the local machine:
+```bash
+$ docker cp es01:/usr/share/elasticsearch/config/certs/http_ca.crt .
+```
+
+The path to the certificate also needs to be passed as an argument to the script
+
+Make REST API call to test if the container is running:
+```bash
+$ curl --cacert http_ca.crt -u elastic:$ELASTIC_PASSWORD https://localhost:9200
+```
+
+The dataset for populating the index can be downloaded ['here'](https://unisydneyedu-my.sharepoint.com/my?id=%2Fpersonal%2Fnhad0493%5Funi%5Fsydney%5Fedu%5Fau%2FDocuments%2FDARPA%20files)

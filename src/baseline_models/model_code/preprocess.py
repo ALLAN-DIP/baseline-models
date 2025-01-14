@@ -107,6 +107,10 @@ def entry_to_vectors(phase: dict) -> tuple:
                             classes.append("A " + home + " B")
                         elif "F " + home + " B" in order_list:
                             classes.append("F " + home + " B")
+                        elif "F " + home + "/NC B" in order_list:
+                            classes.append("F " + home + "/NC B")
+                        elif "F " + home + "/SC B" in order_list:
+                            classes.append("F " + home + "/SC B")
                         else:
                             classes.append(CLASSNOORDER)
                     else:
@@ -295,19 +299,15 @@ def generate_x_y(groups: dict, src: TextIO) -> None:
                 groups[key][1].append(order)
 
 
-def get_messages(state):
-    messages = state["messages"]
-    message_json = json.dumps(messages)
-    return message_json
-
-
-def generate_attribute_message_pair(src):
-    result = list()
+def generate_attribute_message_pair(src: TextIO):
+    attribute_list = list()
+    message_list = list()
     for line in src:
         game = json.loads(line)
         for phase in game["phases"]:
             state = phase["state"]
             attribute = generate_attribute(state)
-            message_json = get_messages(phase)
-            result.append((attribute, message_json,))
-    return result
+            messages = phase["messages"]
+            attribute_list.append(attribute)
+            message_list.append(messages)
+    return attribute_list, message_list

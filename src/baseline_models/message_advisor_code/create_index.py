@@ -1,0 +1,42 @@
+"""Python script to generate and populate message index from dataset"""
+
+from time import time
+import argparse
+import os
+
+from baseline_models.message_advisor_code.elastic.autoencoder_client import AutoencoderClient
+from baseline_models.utils.utils import return_logger
+
+logger = return_logger(__name__)
+
+
+def main():
+    parent_dir = os.path.dirname(os.getcwd())
+
+    # Keyword argument handling
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("-d", "--data_path", type=str, default=os.path.join(parent_dir, "data", "webdip_with_msgs.jsonl"))
+    argparser.add_argument("-m", "--model_path", type=str, default=os.path.join(parent_dir, "models", "example"))
+    argparser.add_argument("-u", "--elastic_username", type=str, default="elastic")
+    argparser.add_argument("-p", "--elastic_password", type=str, default="password")
+    argparser.add_argument("-eh", "--elastic_host", type=str, default="https://localhost:9200")
+    argparser.add_argument("-c", "--elastic_cert_path", type=str, default=os.path.join(parent_dir, "http_ca.cert"))
+    argparser.add_argument("-i", "--index", type=str, default="tagged_documents_encoded")
+
+    args = argparser.parse_args()
+    data_path = args.data_path
+    model_path = args.model_path
+    username = args.elastic_username
+    password = args.elastic_password
+    host = args.elastic_host
+    cert_path = args.elastic_cert_path
+    index = args.index
+
+    es = AutoencoderClient(host, username, password, cert_path, model_path)
+    es.create_index(index)
+    es.populate_index(index, data_path)
+
+if __name__ == "__main__":
+    start_time = time()
+    main()
+    logger.info(f"Total runtime: {(time() - start_time):.2f} seconds")
