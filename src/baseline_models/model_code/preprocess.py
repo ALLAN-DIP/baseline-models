@@ -67,6 +67,10 @@ def entry_to_vectors(phase: dict) -> tuple:
                             classes.append("A " + home + " B")
                         elif "F " + home + " B" in order_list:
                             classes.append("F " + home + " B")
+                        elif "F " + home + "/NC B" in order_list:
+                            classes.append("F " + home + "/NC B")
+                        elif "F " + home + "/SC B" in order_list:
+                            classes.append("F " + home + "/SC B")
                         else:
                             classes.append(CLASSNOORDER)
                     else:
