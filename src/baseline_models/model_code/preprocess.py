@@ -259,12 +259,6 @@ def generate_x_y(groups: dict, src: TextIO) -> None:
                 groups[key][1].append(order)
 
 
-def get_messages(state):
-    messages = state["messages"]
-    message_json = json.dumps(messages)
-    return message_json
-
-
 def generate_attribute_message_pair(src):
     result = list()
     for line in src:
@@ -272,6 +266,6 @@ def generate_attribute_message_pair(src):
         for phase in game["phases"]:
             state = phase["state"]
             attribute = generate_attribute(state)
-            message_json = get_messages(phase)
-            result.append((attribute, message_json,))
+            messages = phase["messages"]
+            result.append((attribute, messages,))
     return result
