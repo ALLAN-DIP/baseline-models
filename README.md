@@ -3,7 +3,7 @@ The repository is modularised into three main components:
 - model_code: Contains the base model code such as KNN and LR for training models
 - visualisation_code: Contains code for visualising suggestions
 - web_code: Contains starter code for a interactive web implementation (development has been paused)
-- elastic: Contains client code for Elastic Search vector database for querying message advice given game state
+- message_advisor_code: Contains client code for Elastic Search vector database for querying message advice given game state
 
 ## Setup
 Perform the following setup to run the code.
@@ -33,7 +33,7 @@ Renders example suggestions on states defined in "examples.py"
 Keyword arguments:
 - -o:   The path to the output folder for the rendered suggestions overlayed on the map
 
-## elastic/create_index.py
+## message_advisor_code/create_index.py
 Create and populate elastic search index for querying message advice
 
 The script requires a running elastic search instance.

@@ -21,7 +21,7 @@ class ElasticClient():
         self.debug = debug
 
 
-    def create_index(self, data_path):
+    def create_index(self):
         """
         Create and populate index
         """
@@ -41,23 +41,30 @@ class ElasticClient():
             }
         })
 
-        data_list = list()
+
+    def populate_index(self, data_path):
+        """
+        Create and populate index
+        """
+        attribute_list = list()
+        message_list = list()
         logger.info("Preprocessing data")
         with open(data_path, "r") as data:
-            data_list = generate_attribute_message_pair(data)
+            attribute_list, message_list = generate_attribute_message_pair(data)
+            assert len(attribute_list) == len(message_list)
 
-        for doc in data_list:
-            if not doc[1]:
+        for atrb, msg in zip(attribute_list, message_list):
+            if not msg:
                 # Skip pairs with no messages
                 continue
 
             tags = set()
-            for message in doc[1]:
+            for message in msg:
                 tags.add(message["sender"] + "-" + message["recipient"])
 
             self.client.index(index = INDEX_NAME, document = {
-                "embedding": doc[0].astype(int),
-                "messages": json.dumps(doc[1]),
+                "embedding": atrb.astype(int),
+                "messages": json.dumps(msg),
                 "tags": list(tags),
             })
 
