@@ -36,7 +36,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-d", "--data_dir", type=str, default=os.path.join(parent_dir, "data"))
     parser.add_argument("-o", "--output_path", type=str, default=os.path.join(parent_dir, "output"))
-    parser.add_argument("-n", "--max_games", type=str, default=-1)
+    parser.add_argument("-n", "--max_games", type=int, default=-1)
     args = parser.parse_args()
 
     data_dir = args.data_dir

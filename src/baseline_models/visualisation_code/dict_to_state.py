@@ -16,11 +16,17 @@ def converting(state_attr: str, state_dict: dict, game: Game):
         if power is None:
             print(f"Inaccurate power '{power_name}' found in state dict")
             return
-        setattr(power, state_attr, clean_input(power_attr)) 
+        if state_attr == "retreats":
+            setattr(power, state_attr, power_attr)
+        else:
+            setattr(power, state_attr, clean_input(power_attr)) 
 
     for power_name in unannotated_powers:
         power = game.powers.get(power_name)
-        setattr(power, state_attr, [])
+        if state_attr == "retreats":
+            setattr(power, state_attr, {})
+        else:
+            setattr(power, state_attr, [])
     return game
 
 def dict_to_state(state_dict: dict) -> tuple[Game, dict]:
