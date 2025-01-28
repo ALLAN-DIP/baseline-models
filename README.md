@@ -35,21 +35,31 @@ Keyword arguments:
 
 ## message_advisor_code/create_index.py
 Create and populate elastic search index for querying message advice
+Keyword arguments:
+- -d:   The path to the jsonl file containing game states to be inserted into the database
+- -m:   The path to the model folder containing the model binaries
+- -u:   The user used to access elasticsearch
+- -p:   The password used to access elasticsearch
+- -eh:  The URL of the elastic database API
+- -c:   The path to the SSL certificate for authenticating to elasticsearch
+- -i:   The name of the index to be created
 
 The script requires a running elastic search instance.
 To start a local ES single-node cluster using docker:
 ```bash
+$ docker network create elastic
 $ docker pull docker.elastic.co/elasticsearch/elasticsearch:8.16.1
 $ docker run --name es01 --net elastic -p 9200:9200 -it -m 1GB docker.elastic.co/elasticsearch/elasticsearch:8.16.1
 ```
 
-The above command will generate a password for the elastic user. Set ELASTIC_PASSWORD in the script with this password.
+The above command will generate a password for the elastic user, which needs to be passed as an argument to the script.
 
 Additionally, an SSL certificate is also generated, which can be copied to the local machine:
 ```bash
 $ docker cp es01:/usr/share/elasticsearch/config/certs/http_ca.crt .
 ```
-Set CERT_PATH to be the downloaded certificate path
+
+The path to the certificate also needs to be passed as an argument to the script
 
 Make REST API call to test if the container is running:
 ```bash

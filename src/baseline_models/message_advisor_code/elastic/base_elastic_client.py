@@ -1,36 +1,39 @@
-"""Elastic search client to store and search messages sent in diplomacy games as vector database."""
+"""Abstract base class for elastic search client to store and search messages sent in diplomacy games as vector database."""
 
 import re
 import json
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from elasticsearch import Elasticsearch
-from baseline_models.model_code.preprocess import generate_attribute, generate_attribute_message_pair
 from baseline_models.model_code.constants import POWERS
 from baseline_models.utils.utils import return_logger
 
 logger = return_logger(__name__)
 
-CORRUPTED_NEWLINE = "~N~"
-INDEX_NAME = "tagged_documents"
 
-class ElasticClient():
-    def __init__(self, host: str, username: str, password: str, cert_path: str, debug: bool = False):
+@dataclass
+class BaseElasticClient(ABC):
+    """Abstract base class for elastic search client to store and search messages sent in diplomacy games as vector database."""
+    vector_element_type: str
+    debug: bool = False
+
+    @abstractmethod
+    def __init__(self, host: str, username: str, password: str, cert_path: str, **kwargs):
         self.client = Elasticsearch(
             host,
             ca_certs = cert_path,
             http_auth = (username, password))
-        self.debug = debug
 
-
-    def create_index(self):
+    def create_index(self, index):
         """
-        Create and populate index
+        Create index.
         """
-        self.client.indices.delete(index=INDEX_NAME, ignore_unavailable=True)
-        self.client.indices.create(index=INDEX_NAME, mappings={
+        self.client.indices.delete(index=index, ignore_unavailable=True)
+        self.client.indices.create(index=index, mappings={
             "properties": {
                 "embedding": {
                     "type": "dense_vector",
-                    "element_type": "bit",
+                    "element_type": self.vector_element_type,
                 },
                 "messages": {
                     "type": "text",
@@ -41,17 +44,11 @@ class ElasticClient():
             }
         })
 
-
-    def populate_index(self, data_path):
+    def populate_index(self, index, data_path):
         """
-        Create and populate index
+        Populate index.
         """
-        attribute_list = list()
-        message_list = list()
-        logger.info("Preprocessing data")
-        with open(data_path, "r") as data:
-            attribute_list, message_list = generate_attribute_message_pair(data)
-            assert len(attribute_list) == len(message_list)
+        attribute_list, message_list = self.preprocess_data(data_path)
 
         for atrb, msg in zip(attribute_list, message_list):
             if not msg:
@@ -62,21 +59,24 @@ class ElasticClient():
             for message in msg:
                 tags.add(message["sender"] + "-" + message["recipient"])
 
-            self.client.index(index = INDEX_NAME, document = {
-                "embedding": atrb.astype(int),
+            self.client.index(index = index, document = {
+                "embedding": atrb.astype(float),
                 "messages": json.dumps(msg),
                 "tags": list(tags),
             })
 
 
-    def get_docs(self, state: dict, num_candidates: int, k: int):
-        attribute = generate_attribute(state)
+    def get_docs(self, index: str, state: dict, num_candidates: int, k: int):
+        """
+        Retrieve k nearest documents from index.
+        """
+        attribute = self.get_embedding(state)
 
         results = self.client.search(
-            index = INDEX_NAME,
+            index = index,
             knn = {
                 "field": "embedding",
-                "query_vector": attribute.astype(int),
+                "query_vector": attribute,
                 "num_candidates": num_candidates,
                 "k": k,
             },
@@ -87,8 +87,11 @@ class ElasticClient():
         return docs
 
 
-    def get_docs_by_tag(self, state: dict, num_candidates: int, k: int, tag: str):
-        attribute = generate_attribute(state)
+    def get_docs_by_tag(self, index: str, state: dict, num_candidates: int, k: int, tag: str):
+        """
+        Retrieve k nearest documents from index, filtered by tag
+        """
+        attribute = self.get_embedding(state)
 
         filters = []
         filters.append({
@@ -100,10 +103,10 @@ class ElasticClient():
         })
         
         results = self.client.search(
-            index = INDEX_NAME,
+            index = index,
             knn = {
                 "field": "embedding",
-                "query_vector": attribute.astype(int),
+                "query_vector": attribute,
                 "num_candidates": num_candidates,
                 "k": k,
                 "filter": filters,
@@ -115,18 +118,16 @@ class ElasticClient():
         return docs
 
 
-    def get_messages_from_sender(self, state: dict, sender: str):
+    def get_messages_from_sender(self, index: str, state: dict, sender: str, num_candidates: int = 50, k: int = 10):
         """
-        Retrieves message recommendations for a power given game state
+        Retrieves message recommendations for a power to send to other powers given game state.
         """
         result = dict()
         for power in POWERS:
             if power == sender:
                 continue
-            docs = self.get_docs_by_tag(state, 50, 10, sender + "-" + power)
+            docs = self.get_docs_by_tag(index, state, num_candidates, k, sender + "-" + power)
             for doc in docs:
-                score = doc["_score"]
-                score_str = f"{score:.{3}f}"
                 messages = json.loads(doc["_source"]["messages"])
                 for message in messages:
                     if message["sender"] == sender and message["recipient"] == power:
@@ -137,13 +138,32 @@ class ElasticClient():
 
                         cleaned_message = clean_message(message["message"])
                         if self.debug:
-                            cleaned_message = cleaned_message + f" [{score_str}]"
+                            cleaned_message = cleaned_message + f" [{doc['_score']:.{3}f}]"
 
                         if message["recipient"] not in result.keys():
                             result[message["recipient"]] = list()
                         result[message["recipient"]].append(cleaned_message)
 
         return result
+    
+    @abstractmethod
+    def preprocess_data(self, data_path, **kwargs):
+        """Generate embedding-message pairs from dataset.
+
+        Returns:
+            list of embeddings and list of messages
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_embedding(self, state, **kwargs):
+        """Generate embedding from game state.
+
+        Returns:
+            embedding
+        """
+        raise NotImplementedError
+
 
 def validate_message(msg_txt: str) -> bool:
     # filter short messages
@@ -169,11 +189,11 @@ def uncorrupt_newlines(msg_txt: str) -> str:
     """
     Replace corrupted newlines (~N~) with newline characters.
     """
-    corrupted_newline_cnt = msg_txt.count(CORRUPTED_NEWLINE)
+    corrupted_newline_cnt = msg_txt.count("~N~")
     if corrupted_newline_cnt > 0:
         for i in reversed(range(1, corrupted_newline_cnt + 1)):
             # replace `i` corrupted newlines in a row
-            corrupted_newlines = " " + " ".join([CORRUPTED_NEWLINE for _ in range(i)]) + " "
+            corrupted_newlines = " " + " ".join(["~N~" for _ in range(i)]) + " "
             fixed_newlines = '\n' * i
             msg_txt = msg_txt.replace(corrupted_newlines, fixed_newlines)
 
