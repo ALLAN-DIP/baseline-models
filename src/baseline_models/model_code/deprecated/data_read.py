@@ -15,9 +15,9 @@ def main():
             # print(entry["rules"])
             for j, phase in enumerate(entry["phases"]):
                 # print(phase['state'].keys())
-                print(phase['state']['name'])
+                print(phase['state'])
                 # print(phase['state']['units'])
-                if j == 16:
+                if j == 0:
                     break
                 # print(phase["orders"])
                 # print(phase["orders"].keys())
@@ -27,11 +27,8 @@ def main():
                     for inf in infs:
                         codes.add(inf)
             """
-            if i == 1:
+            if i == 0:
                 break
-
-
-        print(messages_count)
         
 
 if __name__ == "__main__":

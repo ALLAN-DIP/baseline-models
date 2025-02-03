@@ -1,5 +1,4 @@
-joblib==1.4.2
+# Pinned `diplomacy` to `main`
+diplomacy @ git+https://git@github.com/ALLAN-DIP/diplomacy.git@5733af848f3e5b35cd9ff8a1eba77bb40e09c946
 numpy==1.26.4
 scikit-learn==1.4.1.post1
-scipy==1.14.1
-threadpoolctl==3.5.0

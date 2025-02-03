@@ -4,6 +4,7 @@ import random
 from time import time
 from heapq import nsmallest
 
+
 class Knn_Model:
     def __init__(self, k=1):
         self.data = list()
