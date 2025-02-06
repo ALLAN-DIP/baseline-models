@@ -14,19 +14,42 @@ def gen_one_hot(size: int, non_zero_idx: int):
         _vec[non_zero_idx] = True
     return _vec
 
-def gen_test_context(target, pow_orders):
+def sample_context(target: str, 
+                   pow_orders: list,
+                   min_n_context: int = 0,
+                   max_n_context: int = -1):
+    """
+    Samples context orders from a list of power orders
+    excluding a target order used for prediction
+
+    Params:
+        target (str): the target order to exclude from being sampled
+        pow_orders (list): the full list of power orders
+        min_n_context (int): the minimum number of orders to sample
+        max_n_context (int): the maximum number of orders to sample
+    """
+
     context = [o for o in pow_orders if o != target]
     pool_size = len(context)
 
-    if pool_size == 0:
-        return context
-    
-    # get random sample size
-    sample_size = np.random.randint(pool_size)
+    max_n_context = min(pool_size, max_n_context)
+    min_n_context = min(pool_size, min_n_context)
 
-    # shuffle to generate sampled context 
+    if max_n_context == -1:
+        max_n_context = pool_size
+
+    if min_n_context == -1:
+        min_n_context = pool_size
+    
+    if max_n_context < min_n_context:
+        raise Exception("max_n_context is smaller than min_n_context")
+
+    sample_size = np.random.randint(min_n_context, max_n_context+1)
     np.random.shuffle(context)
     return context[:sample_size]
+
+def gen_test_context(target, pow_orders):
+    return sample_context(target, pow_orders, min_n_context=0)
 
 def get_avg(n_target, n_total, is_percentage=False):
     if n_total == 0:
@@ -35,7 +58,6 @@ def get_avg(n_target, n_total, is_percentage=False):
         return n_target/n_total*100.0
     else:
         return n_target/n_total*1.0
-
 
 
 class TestStats:

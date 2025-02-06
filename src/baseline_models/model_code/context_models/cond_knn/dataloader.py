@@ -44,7 +44,6 @@ class DataLoader:
                 season_phase: str, 
                 state_encoding: np.ndarray
                 ):
-        
         orders = phase.get("orders")
         state = phase.get("states")
         if not state:
@@ -83,6 +82,26 @@ class DataLoader:
                 for noorder in noorder_homes:
                     key = generate_key(noorder, season_phase)
                     self.append_data(key, state_encoding, CLASSNOORDER, pow_orders) 
+            
+            else: # disband
+                units = state.get("units")
+                if not units:
+                    continue
+                pow_units = units.get(power)
+                if not pow_units:
+                    continue
+
+                noorder_units = set(pow_units)
+                for order in pow_orders:
+                    order_type, order_info = Order.get_info(order)
+                    unit = get_unit_from_order(order)
+                    noorder_units.remove(unit)
+                    key = generate_key(unit, season_phase)
+                    self.append_data(key, state_encoding, order, pow_orders)
+                
+                for noorder in noorder_units:
+                    key = generate_key(noorder, season_phase)
+                    self.append_data(key, state_encoding, CLASSNOORDER, pow_orders)
                 
     def load_phase(self, 
                    phase: dict, 
