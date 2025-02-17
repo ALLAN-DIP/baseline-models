@@ -47,7 +47,9 @@ class Dataset:
         Generate directory storing train and test file. Name format of the directory is DDMMYY_HH-MM-SS
         """
         time_mark = datetime.now().strftime("%d%m%y_%H-%M-%S")
-        train_test_dest = os.path.join(self.dest_dir,time_mark)
+        train_test_dest = os.path.join(self.dest_dir, time_mark)
+        if self.n_limit is not None and self.n_limit > 0:
+            train_test_dest = os.path.join(self.dest_dir, f"{self.n_limit}games_{time_mark}")
         if not os.path.isdir(train_test_dest):
             os.makedirs(train_test_dest)
         return train_test_dest
