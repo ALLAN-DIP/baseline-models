@@ -1,14 +1,20 @@
 from tqdm.auto import tqdm
 from datetime import datetime
 import os
+from pathlib import Path
 import pickle
 from sklearn.linear_model import LogisticRegression
 
 from baseline_models.model_code.context_models.lr_context.dataloader import DataLoader
 from baseline_models.model_code.evaluation import evaluate_model
 
+import logging
 from baseline_models.utils.utils import return_logger
 logger = return_logger(__name__)
+logger_file_handler = logging.FileHandler(os.path.join(str(Path(".").resolve()), "logs.log"))
+formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s")
+logger_file_handler.setFormatter(formatter)
+logger.addHandler(logger_file_handler)
 
 def train_lr_context(train_path: str,
                      test_path: str,
@@ -18,6 +24,9 @@ def train_lr_context(train_path: str,
                      ):
     time_mark = datetime.now().strftime("%d%m%y_%H-%M-%S")
     model_path = os.path.join(model_dest, f"lrcontext_{time_mark}")
+
+    if n_games_train is not None and n_games_test is not None and n_games_test > 0 and n_games_train > 0:
+        model_path = os.path.join(model_dest, f"lrcontext_{n_games_train+n_games_test}_{time_mark}")
 
     if not os.path.isdir(model_path):
         os.makedirs(model_path)

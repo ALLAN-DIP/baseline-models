@@ -26,17 +26,22 @@ current state's orders (aka. context orders)
 def train_cond_knn(train_path: str,
                    test_path: str,
                    model_dest: str,
-                   n_neighs: int = 10):
+                   n_neighs: int = 10,
+                   n_train: int = None,
+                   n_test: int = None
+                   ):
 
     time_mark = datetime.now().strftime("%d%m%y_%H-%M-%S")
     model_path = os.path.join(model_dest, f"knn{n_neighs}_{time_mark}")
+    if n_train is not None and n_test is not None and n_train > 0 and n_test > 0:
+        model_path = os.path.join(model_dest, f"knn{n_neighs}_{n_train+n_test}games_{time_mark}") 
 
     if not os.path.isdir(model_path):
         os.makedirs(model_path)
     
     # Train regular knn
     logger.info(f"Training kNN: train_path='{train_path}'")
-    train_data = DataLoader(fpath=train_path).load()
+    train_data = DataLoader(fpath=train_path, n_games=n_train).load()
 
     n_keys = len(train_data.keys())
     # Below code is the same as knn_fast.py
@@ -55,7 +60,7 @@ def train_cond_knn(train_path: str,
     
     logger.info(f"Finished training kNN: model_path='{model_path}'")
 
-    test_data = DataLoader(fpath=test_path, is_test=True).load()
+    test_data = DataLoader(fpath=test_path, is_test=True, n_games=n_test).load()
 
     logger.info(f"Testing regular kNN: test_path='{test_path}'")
     regular_test_res = evaluate_model(test_data, model_path)

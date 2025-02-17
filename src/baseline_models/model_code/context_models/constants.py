@@ -20,12 +20,12 @@ class OrderType(Enum):
     NOORDER=9
 
 class OrderFormat(Enum):
-    HOLD="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) H$"
-    MOVE="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) - (?P<provinceDest>[\w/]+)$"
-    MOVE_VIA="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) - (?P<provinceDest>[\w/]+) VIA$"
-    CONVOY="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) C (?P<unitBType>[AF]) (?P<provinceB>[\w/]+) - (?P<provinceDest>[\w/]+)$"
-    SUPPORT="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) S (?P<unitBType>[AF]) (?P<provinceB>[\w/]+)( - (?P<provinceDest>[\w/]+)){0,1}$"
-    RETREAT="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) R (?P<provinceDest>[\w/]+)$"
-    DISBAND="^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) D$"
-    BUILD_ARMY="^A (?P<provinceDest>[\w/]+) B$"
-    BUILD_FLEET="^F (?P<provinceDest>[\w/]+) B$"
+    HOLD=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) H$"
+    MOVE=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) - (?P<provinceDest>[\w/]+)$"
+    MOVE_VIA=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) - (?P<provinceDest>[\w/]+) VIA$"
+    CONVOY=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) C (?P<unitBType>[AF]) (?P<provinceB>[\w/]+) - (?P<provinceDest>[\w/]+)$"
+    SUPPORT=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) S (?P<unitBType>[AF]) (?P<provinceB>[\w/]+)( - (?P<provinceDest>[\w/]+)){0,1}$"
+    RETREAT=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) R (?P<provinceDest>[\w/]+)$"
+    DISBAND=r"^(?P<unitAType>[AF]) (?P<provinceA>[\w/]+) D$"
+    BUILD_ARMY=r"^A (?P<provinceDest>[\w/]+) B$"
+    BUILD_FLEET=r"^F (?P<provinceDest>[\w/]+) B$"
