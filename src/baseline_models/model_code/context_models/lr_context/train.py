@@ -44,7 +44,7 @@ def train_lr_context(train_path: str,
                                        C=0.01, 
                                        max_iter=200)
             model.fit(X, y)
-            with open(os.path.join(model_dest, key), 'wb') as model_file:
+            with open(os.path.join(model_path, key), 'wb') as model_file:
                 pickle.dump(model, model_file)
 
         except Exception as e:
