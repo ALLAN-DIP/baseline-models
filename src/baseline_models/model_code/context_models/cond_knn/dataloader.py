@@ -45,7 +45,7 @@ class DataLoader:
                 state_encoding: np.ndarray
                 ):
         orders = phase.get("orders")
-        state = phase.get("states")
+        state = phase.get("state")
         if not state:
             return
         builds = state.get("builds")
@@ -59,8 +59,15 @@ class DataLoader:
             if build_count == 0: # no build
                 continue
 
+            pow_orders = orders.get(power)
+            if pow_orders is None:
+                pow_orders = []
+
             # orders filled by power
-            pow_orders = Order.get_valid_orders(orders.get(power), phase)
+            if self._is_test:
+                pow_orders = Order.get_valid_orders(pow_orders, phase, check_void=False)
+            else:
+                pow_orders = Order.get_valid_orders(pow_orders, phase)
 
             if build_count > 0: # buildable
                 if not buildable_homes: # no buildable homes
@@ -117,7 +124,11 @@ class DataLoader:
             for power, pow_orders in orders.items():
                 if pow_orders is None:
                     continue
-                valid_pow_orders = Order.get_valid_orders(pow_orders, phase)
+
+                if self._is_test:
+                    valid_pow_orders = Order.get_valid_orders(pow_orders, phase, check_void=False)
+                else:
+                    valid_pow_orders = Order.get_valid_orders(pow_orders, phase)
 
                 for order in valid_pow_orders:
                     unit = get_unit_from_order(order)
