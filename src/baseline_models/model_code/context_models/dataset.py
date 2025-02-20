@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     # Example usage
     data_dir = os.path.join(str(Path(__file__).resolve().parents[4]), "data")
-    dataset_path = os.path.join(data_dir, "dipnet-data-diplomacy-v1-27k-msgs", "standard_no_press.jsonl")
+    dataset_path = os.path.join(data_dir, "test.jsonl")
     dataset_obj = Dataset(dataset_path=dataset_path, 
             dest_dir=data_dir,
             shuffle=True,

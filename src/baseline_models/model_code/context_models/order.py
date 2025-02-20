@@ -71,10 +71,10 @@ class Order:
         self.encoding = np.concatenate((_orderType, _unitAType, _unitAProvince, _unitBType, _unitBProvince, _destProvince))
         return self.encoding
     
-    def is_valid_order(order: str, phase: dict):
+    def is_valid_order(order: str, phase: dict, check_void: bool = True):
         """
         Check if order is valid (i.e., not illegal) in current phase
-        
+
         Return:
             (bool): True if valid order else False
         """
@@ -83,16 +83,18 @@ class Order:
         except Exception as e:
             print(e)
             return False
+        if not check_void:
+            return True
         if phase.get("results") is None:
             return True
         unit = get_unit_from_order(order)
         return ((unit not in phase["results"]) or ("void" not in phase["results"][unit]))
 
-    def get_valid_orders(orders_ls: list, phase: dict):
+    def get_valid_orders(orders_ls: list, phase: dict, check_void: bool = True):
         """
         Filter a list of order strings to only include valid orders filled in current phase
 
         Return:
             (list): a list of valid order strings
         """
-        return [order for order in orders_ls if Order.is_valid_order(order, phase)]
+        return [order for order in orders_ls if Order.is_valid_order(order, phase, check_void)]

@@ -20,7 +20,8 @@ class DataLoader:
             fpath (str): path to data json file
             n_games (int): number of games in the data
             is_test (bool): whether the dataset is for testing
-            (used for indication to sample test context) 
+                            (used for indication to sample test context)
+            n_encoding_from_powerset (int): how many encodings to sample from powerset
         """
         self._data = dict()
         self._fpath = fpath
@@ -28,7 +29,7 @@ class DataLoader:
         self._is_test = is_test
         self._n_encoding = n_encoding_from_powerset
 
-    def extend_data(self, X: list, y: list, key: str):
+    def extend_dataset(self, X: list, y: list, key: str):
         if not X or not y or not key:
             return
         if self._data.get(key) is None:
@@ -94,13 +95,8 @@ class DataLoader:
                 season_phase: str, 
                 state_encoding: np.ndarray):
         orders = phase.get("orders")
-        state = phase.get("states")
-        if not state:
-            return
-        
+        state = phase.get("state")
         builds = state.get("builds")
-        if not builds:
-            return
         
         for power, build_info in builds.items():
             build_count = build_info.get("count")
@@ -109,7 +105,14 @@ class DataLoader:
             if build_count == 0: # no build
                 continue
 
-            pow_orders = Order.get_valid_orders(orders.get(power), phase)
+            pow_orders = orders.get(power)
+            if pow_orders is None:
+                pow_orders = []
+
+            if self._is_test:
+                pow_orders = Order.get_valid_orders(pow_orders, phase, check_void=False)
+            else:
+                pow_orders = Order.get_valid_orders(pow_orders, phase)
 
             if build_count > 0:
                 if not buildable_homes:
@@ -152,7 +155,7 @@ class DataLoader:
                     continue
 
                 noorder_units = set(pow_units) # track units that have no disband order
-                for order in  pow_orders:
+                for order in pow_orders:
                     order_type, order_info = Order.get_info(order)
                     unit = get_unit_from_order(order)
                     noorder_units.remove(unit)
@@ -191,16 +194,20 @@ class DataLoader:
                 if pow_orders is None:
                     continue
 
-                valid_pow_orders = Order.get_valid_orders(pow_orders, phase)
+                if self._is_test:
+                    valid_pow_orders = Order.get_valid_orders(pow_orders, phase, check_void=False)
+                else:
+                    valid_pow_orders = Order.get_valid_orders(pow_orders, phase)
+
                 for order in valid_pow_orders:
                     unit = get_unit_from_order(order)
                     key = generate_key(unit, season_phase)
-                    X, y = DataLoader.gen_contextual_encodings(target=order, 
-                                                               pow_orders=valid_pow_orders, 
-                                                               state_encoding=state_encoding, 
+                    X, y = DataLoader.gen_contextual_encodings(target=order,
+                                                               pow_orders=valid_pow_orders,
+                                                               state_encoding=state_encoding,
                                                                n_encodings=self._n_encoding)
                     
-                    self.extend_data(X=X, y=y, key=key)
+                    self.extend_dataset(X=X, y=y, key=key)
     
     def load(self):
         self.dataset = dict()
@@ -214,9 +221,5 @@ class DataLoader:
                     season_phase = get_season_phase(state["name"])
                     state_encoding = generate_attribute(state)
                     self.load_phase(phase, season_phase, state_encoding)
+                    
         return self._data
-    
-    
-        
-
-
