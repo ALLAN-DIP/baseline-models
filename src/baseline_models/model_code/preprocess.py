@@ -299,7 +299,7 @@ def generate_x_y(groups: dict, src: TextIO) -> None:
                 groups[key][1].append(order)
 
 
-def generate_attribute_message_pair(src: TextIO):
+def generate_attribute_message_pair(src):
     attribute_list = list()
     message_list = list()
     for line in src:
@@ -311,3 +311,23 @@ def generate_attribute_message_pair(src: TextIO):
             attribute_list.append(attribute)
             message_list.append(messages)
     return attribute_list, message_list
+
+
+def generate_attribute_list(src: TextIO, no_dup: bool = False):
+    result = list()
+    result_set = set()
+    
+    for line in src:
+        game = json.loads(line)
+        for phase in game["phases"]:
+            state = phase["state"]
+            attribute = generate_attribute(state)
+            if no_dup:
+                atrb_string = attribute.tostring()
+                if atrb_string not in result_set:
+                    result_set.add(atrb_string)
+                    result.append(attribute)
+            else:
+                result.append(attribute)
+    
+    return result

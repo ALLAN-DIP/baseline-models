@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from elasticsearch import Elasticsearch
 from baseline_models.model_code.constants import POWERS
+from baseline_models.message_advisor_code.constants import REPOSITORY_NAME
 from baseline_models.utils.utils import return_logger
 
 logger = return_logger(__name__)
@@ -17,12 +18,16 @@ class BaseElasticClient(ABC):
     vector_element_type: str
     debug: bool = False
 
-    @abstractmethod
+
     def __init__(self, host: str, username: str, password: str, cert_path: str, **kwargs):
-        self.client = Elasticsearch(
+        if username:
+            self.client = Elasticsearch(
             host,
             ca_certs = cert_path,
             http_auth = (username, password))
+        else:
+            self.client = Elasticsearch(host)
+
 
     def create_index(self, index):
         """
@@ -44,12 +49,28 @@ class BaseElasticClient(ABC):
             }
         })
 
-    def populate_index(self, index, data_path):
+
+    def populate_index(self, index, data_path, batch_size=500):
         """
         Populate index.
         """
-        attribute_list, message_list = self.preprocess_data(data_path)
+        with open(data_path, "r") as src:
+            batch = []
+            
+            for i, line in enumerate(src):
+                batch.append(line.strip())
 
+                if len(batch) == batch_size:
+                    attribute_list, message_list = self.preprocess_data(batch)
+                    self.insert(index, attribute_list, message_list)
+                    batch = []
+            
+            if batch:
+                attribute_list, message_list = self.preprocess_data(batch)
+                self.insert(index, attribute_list, message_list)
+    
+    
+    def insert(self, index, attribute_list, message_list):
         for atrb, msg in zip(attribute_list, message_list):
             if not msg:
                 # Skip pairs with no messages
@@ -146,8 +167,39 @@ class BaseElasticClient(ABC):
 
         return result
     
+    
+    def register_repository(self):
+        """
+        Register elasticsearch repository
+        """
+        snapshot_body = {
+            "type": "fs",
+            "settings": {
+                    "location": "/mount/backups/fs"
+                }
+        }
+        self.client.snapshot.create_repository(name=REPOSITORY_NAME, body=snapshot_body)
+    
+
+    def create_snapshot(self, name: str):
+        """
+        Create snapshot of elasticsearch index
+        """
+        self.register_repository()
+        self.client.snapshot.create(repository=REPOSITORY_NAME, snapshot=name)
+    
+
+    def restore_snapshot(self, name: str):
+        """
+        Restore elasticsearch index from snapshot
+        """
+        self.register_repository()
+        self.client.snapshot.restore(repository=REPOSITORY_NAME, snapshot=name)
+        logger.info("Restoring elastic data from snapshot")
+    
+
     @abstractmethod
-    def preprocess_data(self, data_path, **kwargs):
+    def preprocess_data(self, batch, **kwargs):
         """Generate embedding-message pairs from dataset.
 
         Returns:

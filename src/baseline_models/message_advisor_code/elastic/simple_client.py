@@ -1,8 +1,7 @@
-"""Elastic search client using autoencoder."""
+"""Elastic search client to store and search messages sent in diplomacy games as vector database."""
 
 from abc import ABC
 from dataclasses import dataclass
-from baseline_models.model_code.auto_encoder import get_encoding, batch_get_encoding
 from baseline_models.message_advisor_code.elastic.base_elastic_client import BaseElasticClient
 from baseline_models.model_code.preprocess import generate_attribute, generate_attribute_message_pair
 from baseline_models.utils.utils import return_logger
@@ -11,33 +10,28 @@ logger = return_logger(__name__)
 
 
 @dataclass
-class AutoencoderClient(BaseElasticClient, ABC):
-    """Elastic search client using autoencoder."""
+class SimpleClient(BaseElasticClient, ABC):
+    """Abstract base class for elastic client."""
+    vector_element_type = "bit"
 
-    vector_element_type = "float"
-    debug = False
 
-    def __init__(self, host: str, model_path: str, username: str = None, password: str = None, cert_path: str = None):
-        super(AutoencoderClient, self).__init__(host, username, password, cert_path)
-        self.model_path = model_path
+    def __init__(self, host: str, username: str = None, password: str = None, cert_path: str = None):
+        super(SimpleClient, self).__init__(host, username, password, cert_path)
 
+        
     def preprocess_data(self, batch):
         """Generate embedding-message pairs from dataset."""
         attribute_list = list()
         message_list = list()
-        logger.info("Preprocessing data")
         attribute_list, message_list = generate_attribute_message_pair(batch)
         assert len(attribute_list) == len(message_list)
-
-        attribute_list = batch_get_encoding(self.model_path, attribute_list, 500)
-
         return attribute_list, message_list
+    
 
     def get_embedding(self, state):
         """
         Preprocess attribute to doc embedding.
         """
         attribute = generate_attribute(state)
-        attribute = get_encoding(self.model_path, attribute)
-        attribute = attribute.astype(float)
+        attribute = attribute.astype(int)
         return attribute
