@@ -33,37 +33,24 @@ Renders example suggestions on states defined in "examples.py"
 Keyword arguments:
 - -o:   The path to the output folder for the rendered suggestions overlayed on the map
 
-## message_advisor_code/create_index.py
-Create and populate elastic search index for querying message advice
+## message_advisor_code/restore_snapshot.py
+Populate elasticsearch index from snapshot for querying message advice
 Keyword arguments:
-- -d:   The path to the jsonl file containing game states to be inserted into the database
-- -m:   The path to the model folder containing the model binaries
-- -u:   The user used to access elasticsearch
-- -p:   The password used to access elasticsearch
-- -eh:  The URL of the elastic database API
-- -c:   The path to the SSL certificate for authenticating to elasticsearch
-- -i:   The name of the index to be created
+- -e:   The URL of the elastic database API
+- -s:   The name of the snapshot being used
 
 The script requires a running elastic search instance.
 To start a local ES single-node cluster using docker:
 ```bash
-$ docker network create elastic
-$ docker pull docker.elastic.co/elasticsearch/elasticsearch:8.16.1
-$ docker run --name es01 --net elastic -p 9200:9200 -it -m 1GB docker.elastic.co/elasticsearch/elasticsearch:8.16.1
+$ cd src/baseline_models/message_advisor_code
+$ docker compose up
 ```
 
-The above command will generate a password for the elastic user, which needs to be passed as an argument to the script.
+This will spin-up an elasticsearch instance accessible on http://localhost:9200
 
-Additionally, an SSL certificate is also generated, which can be copied to the local machine:
+To populate the elasticsearch index, download the snapshot from ['here'](https://unisydneyedu-my.sharepoint.com/:u:/g/personal/nhad0493_uni_sydney_edu_au/EVka0-dl33hMq97ttkfnTk4BcjNncHSBVgg78Tb_0I3uOg?e=cowRPT), extract it into src/baseline_models/message_advisor_code/.snapshots folder, then run the script:
 ```bash
-$ docker cp es01:/usr/share/elasticsearch/config/certs/http_ca.crt .
+$ python restore_snapshot.py
 ```
 
-The path to the certificate also needs to be passed as an argument to the script
-
-Make REST API call to test if the container is running:
-```bash
-$ curl --cacert http_ca.crt -u elastic:$ELASTIC_PASSWORD https://localhost:9200
-```
-
-The dataset for populating the index can be downloaded ['here'](https://unisydneyedu-my.sharepoint.com/my?id=%2Fpersonal%2Fnhad0493%5Funi%5Fsydney%5Fedu%5Fau%2FDocuments%2FDARPA%20files)
+This will prompt elasticsearch to restore data from the snapshot, which will take around 5 minutes
