@@ -108,6 +108,7 @@ class BaselineAdvice:
                     return power
         return None
 
+    @staticmethod
     def sort_preds(preds: dict, phase: PHASES, top_k: int):
         """
         Sort the predicted orders by their predicted probabilities in decreasing order
