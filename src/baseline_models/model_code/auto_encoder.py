@@ -73,7 +73,7 @@ def batch_get_encoding(model_path, state, batchsize):
 
 
 def main():
-    data_path = os.path.join(os.sep, "Users", "nichowil", "Documents", "github", "darpa", "data", "dipnet-data-diplomacy-v1-27k-msgs", "test")
+    data_path = os.path.join("D:", os.sep, "Downloads", "dipnet-data-diplomacy-v1-27k-msgs", "test")
     train_path = os.path.join(data_path, "train.jsonl")
     test_path = os.path.join(data_path, "test.jsonl")
     model_path = os.path.join(data_path, "ae_models")
