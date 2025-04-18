@@ -194,11 +194,11 @@ def generate_attribute(state: dict, name_data=None, units_data=None, centers_dat
         # Encoding units
         if power in units_data:
             if not units_data[power] is None:
-                for i, region in enumerate(TERRITORIES):
+                for i, region in enumerate(INFLUENCES):
                     if f"A {region}" in units_data[power] or f"*A {region}" in units_data[power]:
-                        units_atr[2 * i * n_powers + j] = 1
+                        units_atr[2 * i * n_powers + (j*2)] = 1
                     elif f"F {region}" in units_data[power] or f"*F {region}" in units_data[power]:
-                        units_atr[i * 2 * n_powers + j + 1] = 1
+                        units_atr[2 * i * n_powers + (j*2) + 1] = 1
         # Encoding centers
         if power in centers_data:
             if not centers_data[power] is None:
