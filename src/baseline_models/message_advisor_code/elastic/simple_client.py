@@ -11,7 +11,7 @@ logger = return_logger(__name__)
 
 @dataclass
 class SimpleClient(BaseElasticClient, ABC):
-    """Abstract base class for elastic client."""
+    """Elasticsearch client using raw game attributes."""
     vector_element_type = "bit"
 
 
@@ -25,7 +25,7 @@ class SimpleClient(BaseElasticClient, ABC):
         message_list = list()
         attribute_list, message_list = generate_attribute_message_pair(batch)
         assert len(attribute_list) == len(message_list)
-        return attribute_list, message_list
+        return attribute_list, attribute_list, message_list
     
 
     def get_embedding(self, state):

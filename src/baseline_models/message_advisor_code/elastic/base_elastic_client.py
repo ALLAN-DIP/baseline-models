@@ -34,8 +34,13 @@ class BaseElasticClient(ABC):
         Create index.
         """
         self.client.indices.delete(index=index, ignore_unavailable=True)
+        """
         self.client.indices.create(index=index, mappings={
             "properties": {
+                "raw_game_state": {
+                    "type": "dense_vector",
+                    "element_type": self.vector_element_type,
+                },
                 "embedding": {
                     "type": "dense_vector",
                     "element_type": self.vector_element_type,
@@ -48,6 +53,7 @@ class BaseElasticClient(ABC):
                 }
             }
         })
+        """
 
 
     def populate_index(self, index, data_path, batch_size=500):
@@ -61,17 +67,17 @@ class BaseElasticClient(ABC):
                 batch.append(line.strip())
 
                 if len(batch) == batch_size:
-                    attribute_list, message_list = self.preprocess_data(batch)
-                    self.insert(index, attribute_list, message_list)
+                    game_state_list, attribute_list, message_list = self.preprocess_data(batch)
+                    self.insert(index, game_state_list, attribute_list, message_list)
                     batch = []
             
             if batch:
-                attribute_list, message_list = self.preprocess_data(batch)
-                self.insert(index, attribute_list, message_list)
+                game_state_list, attribute_list, message_list = self.preprocess_data(batch)
+                self.insert(index, game_state_list, attribute_list, message_list)
     
     
-    def insert(self, index, attribute_list, message_list):
-        for atrb, msg in zip(attribute_list, message_list):
+    def insert(self, index, game_state_list, attribute_list, message_list):
+        for game_state, atrb, msg in zip(game_state_list, attribute_list, message_list):
             if not msg:
                 # Skip pairs with no messages
                 continue
@@ -81,6 +87,7 @@ class BaseElasticClient(ABC):
                 tags.add(message["sender"] + "-" + message["recipient"])
 
             self.client.index(index = index, document = {
+                "raw_game_state": game_state.astype(int),
                 "embedding": atrb.astype(float),
                 "messages": json.dumps(msg),
                 "tags": list(tags),
@@ -221,6 +228,11 @@ def validate_message(msg_txt: str) -> bool:
     # filter short messages
     if len(msg_txt) <= 10:
         return False
+    
+    # filter long messages
+    if len(msg_txt) >= 1000:
+        return False
+    
     # filter user ids
     if re.search(r"\[\d+\]", msg_txt):
         return False

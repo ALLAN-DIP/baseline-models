@@ -6,6 +6,7 @@ import os
 
 from baseline_models.message_advisor_code.elastic.autoencoder_client import AutoencoderClient
 from baseline_models.message_advisor_code.elastic.simple_client import SimpleClient
+from baseline_models.message_advisor_code.elastic.masked_client import MaskedClient
 from baseline_models.utils.utils import return_logger
 
 logger = return_logger(__name__)
@@ -23,6 +24,7 @@ def main():
     argparser.add_argument("-e", "--elastic_host", type=str, default="http://localhost:9200")
     argparser.add_argument("-c", "--elastic_cert_path", type=str, default=None)
     argparser.add_argument("-i", "--index", type=str, default="tagged_documents_encoded")
+    argparser.add_argument("-t", "--client_type", type=str, default="simple")
 
     args = argparser.parse_args()
     data_path = args.data_path
@@ -33,7 +35,14 @@ def main():
     cert_path = args.elastic_cert_path
     index = args.index
 
-    es = AutoencoderClient(host, model_path, username, password, cert_path)
+    es = None
+    if args.client_type == "simple":
+        es = SimpleClient(host)
+    elif args.client_type == "autoencoder":
+        es = AutoencoderClient(host, model_path)
+    elif args.client_type == "masked":
+        es = MaskedClient(host)
+
     es.create_index(index)
     es.populate_index(index, data_path, 500)
 

@@ -53,4 +53,4 @@ To populate the elasticsearch index, download the snapshot from ['here'](https:/
 $ python restore_snapshot.py
 ```
 
-This will prompt elasticsearch to restore data from the snapshot, which will take around 5 minutes
+This will prompt elasticsearch to restore data from the snapshot in the background, which will take a few minutes

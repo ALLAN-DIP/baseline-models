@@ -12,7 +12,7 @@ logger = return_logger(__name__)
 
 @dataclass
 class AutoencoderClient(BaseElasticClient, ABC):
-    """Elastic search client using autoencoder."""
+    """Elasticsearch client using autoencoder."""
 
     vector_element_type = "float"
     debug = False
@@ -24,14 +24,15 @@ class AutoencoderClient(BaseElasticClient, ABC):
     def preprocess_data(self, batch):
         """Generate embedding-message pairs from dataset."""
         attribute_list = list()
+        encoding_list = list()
         message_list = list()
         logger.info("Preprocessing data")
         attribute_list, message_list = generate_attribute_message_pair(batch)
         assert len(attribute_list) == len(message_list)
 
-        attribute_list = batch_get_encoding(self.model_path, attribute_list, 500)
+        encoding_list = batch_get_encoding(self.model_path, attribute_list, 500)
 
-        return attribute_list, message_list
+        return attribute_list, encoding_list, message_list
 
     def get_embedding(self, state):
         """

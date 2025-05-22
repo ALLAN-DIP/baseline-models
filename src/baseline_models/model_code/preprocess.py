@@ -228,6 +228,73 @@ def generate_attribute(state: dict, name_data=None, units_data=None, centers_dat
     return attribute
 
 
+def get_scaled_masked_attribute(attribute, masked_powers:list=None, mask_phase=False, mask_unit=False, mask_center=False, mask_home=False, mask_influence=False, scaled_powers:dict = None, scale_phase=1, scale_unit=1, scale_center=1, scale_home=1, scale_influence=1):
+
+    if not scaled_powers:
+        scaled_powers = {
+            'AUSTRIA': 1, 
+            'ENGLAND': 1, 
+            'FRANCE': 1, 
+            'GERMANY': 1, 
+            'ITALY': 1, 
+            'RUSSIA': 1, 
+            'TURKEY': 1
+        }
+
+    phase_len = 6
+    masked_attribute = []
+    n_powers = len(POWERS)
+
+    phase_atr = np.zeros([phase_len], dtype=bool)
+    units_atr = np.zeros([n_powers * 2 * len(INFLUENCES)], dtype=bool)
+    centers_atr = np.zeros([n_powers * len(CENTERS)], dtype=bool)
+    homes_atr = np.zeros([n_powers * len(HOMES)], dtype=bool)
+    influences_atr = np.zeros([n_powers * len(TERRITORIES)], dtype=bool)
+
+    k = 0
+    phase_atr = attribute[k:phase_len]
+    k += phase_len
+    units_atr = attribute[k:k + (n_powers * 2 * len(INFLUENCES))]
+    k += n_powers * 2 * len(INFLUENCES)
+    centers_atr = attribute[k:k + (n_powers * len(CENTERS))]
+    k += n_powers * len(CENTERS)
+    homes_atr = attribute[k:k + (n_powers * len(HOMES))]
+    k += n_powers * len(HOMES)
+    influences_atr = attribute[k:k + (n_powers * len(TERRITORIES))]
+
+    if not mask_phase:
+        for val in phase_atr:
+            masked_attribute.append(val*scale_phase)
+
+
+    for j, power in enumerate(POWERS):
+        if masked_powers and power in masked_powers:
+            continue
+
+        if not mask_unit:
+            for i, region in enumerate(INFLUENCES):
+                unit_index = 2 * i * n_powers + (2*j)
+                masked_attribute.append(units_atr[unit_index]*scale_unit*scaled_powers[power])
+                masked_attribute.append(units_atr[unit_index+1]*scale_unit*scaled_powers[power])
+
+        # Encoding centers
+        if not mask_center:
+            for i, center in enumerate(CENTERS):
+                masked_attribute.append(centers_atr[i * n_powers + j]*scale_center*scaled_powers[power])
+
+        # Encoding homes
+        if not mask_home:
+            for i, home in enumerate(HOMES):
+                masked_attribute.append(homes_atr[i * n_powers + j]*scale_home*scaled_powers[power])
+        
+        # Encoding influences
+        if not mask_influence:
+            for i, inf in enumerate(TERRITORIES):
+                masked_attribute.append(influences_atr[i * n_powers + j]*scale_influence*scaled_powers[power])
+    
+    return np.array(masked_attribute)
+
+
 def get_season_phase(name_data: str, abbr=True) -> str:
     """
     Gets the current season phase type (for example "FM" is fall movement)
