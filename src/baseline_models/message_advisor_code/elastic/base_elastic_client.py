@@ -34,7 +34,6 @@ class BaseElasticClient(ABC):
         Create index.
         """
         self.client.indices.delete(index=index, ignore_unavailable=True)
-        """
         self.client.indices.create(index=index, mappings={
             "properties": {
                 "raw_game_state": {
@@ -53,7 +52,6 @@ class BaseElasticClient(ABC):
                 }
             }
         })
-        """
 
 
     def populate_index(self, index, data_path, batch_size=500):
