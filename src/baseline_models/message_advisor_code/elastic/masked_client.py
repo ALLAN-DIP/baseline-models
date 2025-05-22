@@ -3,7 +3,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from baseline_models.message_advisor_code.elastic.base_elastic_client import BaseElasticClient
-from baseline_models.model_code.preprocess import generate_attribute, generate_attribute_message_pair, get_masked_attribute, get_scaled_masked_attribute
+from baseline_models.model_code.preprocess import generate_attribute, generate_attribute_message_pair, get_scaled_masked_attribute
 from baseline_models.utils.utils import return_logger
 
 logger = return_logger(__name__)
