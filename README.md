@@ -48,7 +48,7 @@ $ docker compose up
 
 This will spin-up an elasticsearch instance accessible on http://localhost:9200
 
-To populate the elasticsearch index, download the snapshot from ['here'](https://drive.google.com/file/d/16DRNnzcTvM0S-utAy9SXnm7BHWc13xhf/view?usp=drive_link), extract it into src/baseline_models/message_advisor_code/.snapshots folder, then run the script:
+To populate the elasticsearch index, download the snapshot from ['here'](https://drive.google.com/file/d/1ZcxDEwZPWYElUVZo-zm6ls0HLRlo4f2h/view?usp=drive_link), extract it into src/baseline_models/message_advisor_code/.snapshots folder, then run the script:
 ```bash
 $ python restore_snapshot.py
 ```
