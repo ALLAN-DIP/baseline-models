@@ -4,6 +4,7 @@ from time import time
 import argparse
 import os
 
+from baseline_models.message_advisor_code.constants import DEFAULT_HOST, DEFAULT_INDEX
 from baseline_models.message_advisor_code.elastic.autoencoder_client import AutoencoderClient
 from baseline_models.message_advisor_code.elastic.simple_client import SimpleClient
 from baseline_models.message_advisor_code.elastic.masked_client import MaskedClient
@@ -21,9 +22,9 @@ def main():
     argparser.add_argument("-m", "--model_path", type=str, default=os.path.join(parent_dir, "models", "example"))
     argparser.add_argument("-u", "--elastic_username", type=str, default=None)
     argparser.add_argument("-p", "--elastic_password", type=str, default=None)
-    argparser.add_argument("-e", "--elastic_host", type=str, default="http://localhost:9200")
+    argparser.add_argument("-e", "--elastic_host", type=str, default=DEFAULT_HOST)
     argparser.add_argument("-c", "--elastic_cert_path", type=str, default=None)
-    argparser.add_argument("-i", "--index", type=str, default="tagged_documents_encoded")
+    argparser.add_argument("-i", "--index", type=str, default=DEFAULT_INDEX)
     argparser.add_argument("-t", "--client_type", type=str, default="simple")
 
     args = argparser.parse_args()
