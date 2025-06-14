@@ -22,11 +22,14 @@ class BaseElasticClient(ABC):
     def __init__(self, host: str, username: str, password: str, cert_path: str, **kwargs):
         if username:
             self.client = Elasticsearch(
-            host,
-            ca_certs = cert_path,
-            http_auth = (username, password))
+                host,
+                ca_certs = cert_path,
+                http_auth = (username, password),
+                **kwargs)
         else:
-            self.client = Elasticsearch(host)
+            self.client = Elasticsearch(
+                host,
+                **kwargs)
 
 
     def create_index(self, index):
@@ -199,7 +202,7 @@ class BaseElasticClient(ABC):
         Restore elasticsearch index from snapshot
         """
         self.register_repository()
-        self.client.snapshot.restore(repository=REPOSITORY_NAME, snapshot=name)
+        self.client.snapshot.restore(repository=REPOSITORY_NAME, snapshot=name, wait_for_completion=True, master_timeout=-1)
         logger.info("Restoring elastic data from snapshot")
     
 

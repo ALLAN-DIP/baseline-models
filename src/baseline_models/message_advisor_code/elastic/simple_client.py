@@ -15,8 +15,8 @@ class SimpleClient(BaseElasticClient, ABC):
     vector_element_type = "bit"
 
 
-    def __init__(self, host: str, username: str = None, password: str = None, cert_path: str = None):
-        super(SimpleClient, self).__init__(host, username, password, cert_path)
+    def __init__(self, host: str, username: str = None, password: str = None, cert_path: str = None, **kwargs):
+        super(SimpleClient, self).__init__(host, username, password, cert_path, **kwargs)
 
         
     def preprocess_data(self, batch):
