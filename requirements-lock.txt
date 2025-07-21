@@ -4,6 +4,7 @@ charset-normalizer==3.4.0
 colorama==0.4.6
 coloredlogs==15.0.1
 diplomacy @ git+https://git@github.com/ALLAN-DIP/diplomacy.git@b9b95e51d5dad1b977c16e832a9c81152bc8a4fa
+elastic-transport==8.17.1
 elasticsearch==8.15.1
 humanfriendly==10.0
 idna==3.10
