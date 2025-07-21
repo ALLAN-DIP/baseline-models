@@ -1,5 +1,5 @@
 # Pinned `diplomacy` to `main`
-diplomacy @ git+https://git@github.com/ALLAN-DIP/diplomacy.git@aa6055fe9b933bd393a0339568e102534bb2009c
+diplomacy @ git+https://git@github.com/ALLAN-DIP/diplomacy.git@b9b95e51d5dad1b977c16e832a9c81152bc8a4fa
 elasticsearch==8.15.1
 numpy==1.26.4
 scikit-learn==1.4.1.post1
