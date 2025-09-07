@@ -53,9 +53,27 @@ This will spin-up an Elasticsearch instance accessible at <http://localhost:9200
 
 To restore the Elasticsearch index:
 
-- Download the snapshot from [Google Drive](https://drive.google.com/file/d/1ZcxDEwZPWYElUVZo-zm6ls0HLRlo4f2h/view?usp=drive_link)
-- Extract the contents of `fs.zip`
-- Put the resulting `fs` folder into the `src/baseline_models/message_advisor_code/.snapshots` folder, creating the folder if it does not exist
+- Download the snapshot from GitHub at <https://github.com/ALLAN-DIP/large-file-storage/tree/main/elasticsearch_dump>:
+
+    ```bash
+    wget https://github.com/ALLAN-DIP/large-file-storage/raw/refs/heads/main/elasticsearch_dump/fs{1..3}.zip
+    ```
+
+- Extract the contents of `fs.zip`:
+
+    ```bash
+    unzip fs1.zip
+    unzip fs2.zip
+    unzip fs3.zip
+    ```
+
+- Put the resulting `fs` folder into the `src/baseline_models/message_advisor_code/.snapshots` folder, creating the folder if it does not exist:
+
+    ```bash
+    mkdir -p .snapshots
+    mv fs/ .snapshots/
+    ```
+
 - Run the script:
 
     ```bash
